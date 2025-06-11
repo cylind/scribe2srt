@@ -1,0 +1,37 @@
+1
+00:00:00,599 --> 00:00:04,298
+Create high-quality, multi-character
+audiobooks with ElevenLabs.
+
+2
+00:00:04,299 --> 00:00:07,178
+Simply upload your EPUB or PDF.
+
+3
+00:00:07,179 --> 00:00:09,738
+Select your voices and begin generating.
+
+4
+00:00:09,739 --> 00:00:16,238
+"My dear fellow," said Sherlock Holmes as
+we sat on either side of the fire at Baker Street.
+
+5
+00:00:16,239 --> 00:00:23,198
+"Life is infinitely stranger than anything
+which the mind of man could invent." Mrs.
+
+6
+00:00:23,199 --> 00:00:26,778
+Gardiner's caution to Elizabeth was
+punctually and kindly given.
+
+7
+00:00:26,779 --> 00:00:34,118
+"You are too sensible a girl, Lizzy, to
+fall in love merely because you are warned against it." Join thousands of authors
+
+8
+00:00:34,119 --> 00:00:38,047
+today creating high-quality audiobooks
+with ElevenLabs.

@@ -18,120 +18,166 @@ def format_srt_time(seconds: float) -> str:
 
 class SrtProcessor:
     """
-    A class to process word-level transcription data into professional SRT subtitles.
+    Processes word-level transcription data into professional SRT subtitles
+    using a two-stage approach: semantic grouping and visual formatting.
     """
-    def __init__(self, json_data: Dict, max_chars_per_line: int):
+    def __init__(self, json_data: Dict):
         self.srt_content = []
         self.line_number = 1
-        self.max_chars_per_line = max_chars_per_line
+        self.language = json_data.get("language_code", "eng")[:3] # e.g., "eng"
+        self.max_chars_per_line = self._get_max_chars_for_language()
         self._preprocess_words(json_data)
+
+    def _get_max_chars_for_language(self) -> int:
+        """Returns the recommended max characters per line based on language."""
+        if self.language in ["zho", "jpn", "kor"]: # Chinese, Japanese, Korean
+            return 18
+        else: # Latin-based languages (English, Spanish, etc.)
+            return 42
 
     def _preprocess_words(self, json_data: Dict):
         """
-        Pre-processes the word list to merge standalone punctuation onto the previous word.
-        This fixes issues where pauses cause punctuation to be orphaned.
+        Pre-processes the word list to handle language-specific quirks,
+        such as merging standalone CJK punctuation.
         """
-        raw_words = [w for w in json_data.get("words", []) if w.get("type") != "spacing"]
+        raw_words = json_data.get("words", [])
         self.words = []
         for i, word_info in enumerate(raw_words):
-            # Check for standalone CJK punctuation
-            is_standalone_punctuation = len(word_info['text']) == 1 and word_info['text'] in "。？！」「、"
-            
-            # If it is, and if there's a previous word, merge it
-            if is_standalone_punctuation and self.words:
+            is_cjk_punctuation = len(word_info['text']) == 1 and word_info['text'] in "。？！」「、"
+            if is_cjk_punctuation and self.words:
                 prev_word = self.words[-1]
-                
-                # Ensure the previous word isn't also punctuation or an event
-                if prev_word['text'] and prev_word['text'][-1] not in "。？！」「、" and prev_word.get("type") == "word":
-                    # Append text and update the end time
+                if prev_word.get("type") == "word" and prev_word['text'] and prev_word['text'][-1] not in "。？！」「、":
                     prev_word['text'] += word_info['text']
                     prev_word['end'] = word_info['end']
-                    continue # Skip appending the standalone punctuation
-
+                    continue
             self.words.append(word_info)
 
     def _split_text_into_lines(self, text: str) -> str:
-        """Intelligently splits a single line of text into two if it exceeds max length."""
+        """
+        Intelligently splits a text block into a maximum of two lines,
+        respecting the max_chars_per_line limit.
+        """
         if len(text) <= self.max_chars_per_line:
             return text
-
-        best_split_pos = -1
-        # Try to find the last punctuation mark before the max length limit
-        for i in range(min(len(text) - 1, self.max_chars_per_line), 0, -1):
-            if text[i] in "、。「」？！":
-                best_split_pos = i + 1
-                break
         
-        if best_split_pos != -1:
-            line1 = text[:best_split_pos]
-            line2 = text[best_split_pos:]
-            # If the second line is still too long, this simple split is not enough.
-            if len(line2) > self.max_chars_per_line:
-                 return text[:self.max_chars_per_line] + "\n" + text[self.max_chars_per_line:]
-            return f"{line1}\n{line2}"
+        lines = []
+        remaining_text = text.strip()
+        split_chars = "。？！、,." + " "
 
-        # If no punctuation, do a hard split at the max length
-        return text[:self.max_chars_per_line] + "\n" + text[self.max_chars_per_line:]
+        if len(remaining_text) > self.max_chars_per_line:
+            best_split_pos = -1
+            search_range = self.max_chars_per_line + 1
+            try:
+                best_split_pos = max(remaining_text.rfind(char, 0, search_range) for char in split_chars)
+            except ValueError:
+                best_split_pos = -1
+
+            if best_split_pos <= 0:
+                best_split_pos = self.max_chars_per_line
+
+            split_at_char = remaining_text[best_split_pos]
+            if split_at_char == ' ':
+                line = remaining_text[:best_split_pos]
+                remaining_text = remaining_text[best_split_pos+1:]
+            else:
+                line = remaining_text[:best_split_pos+1]
+                remaining_text = remaining_text[best_split_pos+1:]
+            
+            lines.append(line.strip())
+
+        if remaining_text:
+            lines.append(remaining_text.strip())
+            
+        return "\n".join(lines)
 
     def _finalize_and_add_subtitle(self, words_in_block, next_word_start=None):
+        """
+        Takes a block of words, formats them into a subtitle, and adds it to the list.
+        This is the 'Visual Formatting' stage.
+        """
         if not words_in_block: return
+
+        text = "".join(w['text'] for w in words_in_block).strip()
+        if not text: return # Fix for empty subtitle bug
+
         start_time = words_in_block[0]['start']
         end_time = words_in_block[-1]['end']
-        text = "".join(w['text'] for w in words_in_block)
+        
+        # Adjust timing for readability
         duration = end_time - start_time
         if duration < MIN_SUBTITLE_DURATION:
             end_time = start_time + MIN_SUBTITLE_DURATION
+        
         effective_duration = end_time - start_time
         cps = len(text) / effective_duration if effective_duration > 0 else 999
         if cps > MAX_CPS:
-            required_duration = len(text) / MAX_CPS
-            end_time = start_time + required_duration
+            end_time = start_time + (len(text) / MAX_CPS)
+
+        # Prevent overlap with the next subtitle
         if next_word_start and end_time >= next_word_start:
             end_time = next_word_start - 0.001
+        
+        # Ensure start_time is not after end_time
+        if start_time >= end_time:
+            end_time = start_time + MIN_SUBTITLE_DURATION
+
         final_text = self._split_text_into_lines(text)
         self.srt_content.append(f"{self.line_number}\n{format_srt_time(start_time)} --> {format_srt_time(end_time)}\n{final_text}\n")
         self.line_number += 1
 
     def create_srt(self) -> str:
+        """
+        Creates the full SRT content by grouping words semantically.
+        This is the 'Semantic Grouping' stage.
+        """
         if not self.words: return ""
+        
         current_block = []
+        hard_break_chars = ".?!。？！"
+
         for i, word in enumerate(self.words):
             if word.get("type") == "audio_event":
-                self._finalize_and_add_subtitle(current_block, next_word_start=word.get('start'))
+                self._finalize_and_add_subtitle(current_block)
                 current_block = []
-                self.srt_content.append(f"{self.line_number}\n{format_srt_time(word['start'])} --> {format_srt_time(word['end'])}\n{word['text']}\n")
-                self.line_number += 1
+                self._finalize_and_add_subtitle([word]) # Handle event as its own block
                 continue
+
             current_block.append(word)
-            text_so_far = "".join(w['text'] for w in current_block)
-            duration_so_far = word['end'] - current_block[0]['start']
+            
             is_last_word = (i == len(self.words) - 1)
-            hard_break = word['text'].endswith(('。', '？', '！'))
-            long_pause, next_start_time = False, None
+            
+            # Check for hard break condition
+            ends_with_hard_break = word['text'] and word['text'][-1] in hard_break_chars
+            
+            # Check for long pause condition
+            long_pause = False
+            next_start_time = None
             if not is_last_word:
                 next_word = self.words[i+1]
                 if next_word.get("type") != "audio_event":
                     next_start_time = next_word['start']
                     if (next_start_time - word['end']) > PAUSE_THRESHOLD:
                         long_pause = True
+            
+            # Check for duration limit
+            duration_so_far = word['end'] - current_block[0]['start']
             duration_exceeded = duration_so_far > MAX_SUBTITLE_DURATION
-            length_exceeded = len(text_so_far) > (self.max_chars_per_line * MAX_LINES_PER_SUBTITLE)
-            if is_last_word or hard_break or long_pause or duration_exceeded or length_exceeded:
+
+            if is_last_word or ends_with_hard_break or long_pause or duration_exceeded:
                 self._finalize_and_add_subtitle(current_block, next_word_start=next_start_time)
                 current_block = []
+                
         return "\n".join(self.srt_content)
 
-def create_srt_from_json(json_data: Dict, max_chars_per_line: int) -> str:
+def create_srt_from_json(json_data: Dict) -> str:
     """
     Processes transcription JSON data to create a professional SRT file.
+    The max_chars_per_line is now determined automatically based on language.
     """
-    processor = SrtProcessor(json_data, max_chars_per_line)
+    processor = SrtProcessor(json_data)
     return processor.create_srt()
 
 if __name__ == '__main__':
-    # This block allows for direct testing of the SRT processor.
-    # It scans the 'sample' directory, processes all .json files,
-    # and saves the output as .srt files in the same directory.
     import os
     import json
 
@@ -157,8 +203,8 @@ if __name__ == '__main__':
                     with open(json_path, 'r', encoding='utf-8') as f:
                         test_json_data = json.load(f)
                     
-                    test_max_chars = 18
-                    generated_srt = create_srt_from_json(test_json_data, test_max_chars)
+                    # The max_chars_per_line argument is no longer needed.
+                    generated_srt = create_srt_from_json(test_json_data)
                     
                     with open(srt_path, 'w', encoding='utf-8') as f_out:
                         f_out.write(generated_srt)

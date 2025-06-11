@@ -1,0 +1,1025 @@
+{
+    "additional_formats": null,
+    "language_code": "eng",
+    "language_probability": 1.0,
+    "text": "In the ancient land of Eldoria, where the skies were painted with shades of mystic hues and the forests whispered secrets of old, there existed a dragon named Zephyros. Unlike the fearsome tales of dragons that plagued human hearts with terror, Zephyros was a creature of wonder and wisdom, revered by all who knew of his existence.",
+    "words": [
+        {
+            "characters": null,
+            "end": 0.199,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.079,
+            "text": "In",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 0.219,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.199,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 0.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.219,
+            "text": "the",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 0.359,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.319,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 0.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.359,
+            "text": "ancient",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 0.699,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.679,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 0.999,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.699,
+            "text": "land",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 1.019,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.999,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 1.079,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.019,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 1.12,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.079,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 1.879,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.12,
+            "text": "Eldoria,",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.019,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.879,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.019,
+            "text": "where",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.2,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.159,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.2,
+            "text": "the",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.299,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.259,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.299,
+            "text": "skies",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.679,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.859,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.679,
+            "text": "were",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.859,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.859,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 3.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.859,
+            "text": "painted",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 3.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.259,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 3.399,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.259,
+            "text": "with",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 3.46,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.399,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 3.839,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.46,
+            "text": "shades",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 3.859,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.839,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 3.959,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.859,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 4.0,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.959,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 4.38,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.0,
+            "text": "mystic",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 4.38,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.38,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 4.859,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.38,
+            "text": "hues",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 5.0,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.859,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 5.139,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.0,
+            "text": "and",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 5.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.139,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 5.299,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.159,
+            "text": "the",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 5.299,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.299,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 5.819,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.299,
+            "text": "forests",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 5.819,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.819,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.819,
+            "text": "whispered",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.319,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.319,
+            "text": "secrets",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.679,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.819,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.679,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.819,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.819,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 7.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.819,
+            "text": "old,",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 7.779,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.259,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 7.939,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.779,
+            "text": "there",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 7.94,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.939,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 8.439,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.94,
+            "text": "existed",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 8.479,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.439,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 8.559,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.479,
+            "text": "a",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 8.579,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.559,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 9.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.579,
+            "text": "dragon",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 9.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.039,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 9.36,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.039,
+            "text": "named",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 9.439,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.36,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 10.279,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.439,
+            "text": "Zephyros.",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.079,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 10.279,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 11.399,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.079,
+            "text": "Unlike",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.439,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.399,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 11.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.439,
+            "text": "the",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.539,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 11.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.539,
+            "text": "fearsome",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.979,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 12.379,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.979,
+            "text": "tales",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 12.399,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.379,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 12.5,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.399,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 12.5,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.5,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.019,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.5,
+            "text": "dragons",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.019,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.199,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.039,
+            "text": "that",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.219,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.199,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.219,
+            "text": "plagued",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.539,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.779,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.539,
+            "text": "human",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.84,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.779,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 14.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.84,
+            "text": "hearts",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 14.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.159,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 14.299,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.159,
+            "text": "with",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 14.38,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.299,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 14.839,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.38,
+            "text": "terror,",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 15.359,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.839,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 15.899,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.359,
+            "text": "Zephyros",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 15.899,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.899,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 16.02,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.899,
+            "text": "was",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 16.02,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.02,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 16.14,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.02,
+            "text": "a",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 16.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.14,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 16.459,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.159,
+            "text": "creature",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 16.479,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.459,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 16.6,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.479,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 16.619,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.6,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 17.0,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.619,
+            "text": "wonder",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 17.02,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.0,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 17.12,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.02,
+            "text": "and",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 17.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.12,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 17.7,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.159,
+            "text": "wisdom,",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.1,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.7,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 18.619,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.1,
+            "text": "revered",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.619,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.619,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 18.76,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.619,
+            "text": "by",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.76,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.76,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 18.94,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.76,
+            "text": "all",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.94,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.18,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.979,
+            "text": "who",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.18,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.18,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.34,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.18,
+            "text": "knew",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.34,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.34,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.439,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.34,
+            "text": "of",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.439,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.439,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.579,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.439,
+            "text": "his",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.659,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.579,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 20.419,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.659,
+            "text": "existence.",
+            "type": "word"
+        }
+    ]
+}

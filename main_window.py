@@ -2,6 +2,8 @@ import sys
 import os
 import json
 import ctypes
+import subprocess
+import shutil
 from ctypes import wintypes
 from typing import Optional
 
@@ -146,12 +148,13 @@ class Worker(QObject):
     log_message = Signal(str)
     progress_updated = Signal(int, int)
 
-    def __init__(self, file_path: str, language_code: str, tag_audio_events: bool, max_chars: int):
+    def __init__(self, file_path: str, language_code: str, tag_audio_events: bool, original_file_path: Optional[str] = None):
         super().__init__()
-        self.file_path = file_path
+        self.file_path = file_path # This might be a temporary audio file
+        self.original_file_path = original_file_path if original_file_path else file_path
+        self.is_temp_file = (file_path != self.original_file_path)
         self.language_code = language_code
         self.tag_audio_events = tag_audio_events
-        self.max_chars = max_chars
         self.uploader = None
         self.client = ElevenLabsSTTClient(signals_forwarder=self)
 
@@ -174,7 +177,8 @@ class Worker(QObject):
     def on_upload_finished(self, transcript_json):
         self.log_message.emit("上传成功！正在处理和生成SRT文件...")
         
-        base_path, _ = os.path.splitext(self.file_path)
+        # Use the original file path for output files
+        base_path, _ = os.path.splitext(self.original_file_path)
         output_json_path = base_path + ".json"
         try:
             with open(output_json_path, 'w', encoding='utf-8') as f:
@@ -182,11 +186,13 @@ class Worker(QObject):
             self.log_message.emit(f"JSON 文件已保存到:\n{output_json_path}")
         except Exception as e:
             self.error.emit(f"保存 JSON 文件时出错: {e}")
+            self._cleanup_temp_file()
             return
 
-        srt_data = create_srt_from_json(transcript_json, self.max_chars)
+        srt_data = create_srt_from_json(transcript_json)
         if not srt_data:
             self.error.emit("从JSON生成SRT失败。")
+            self._cleanup_temp_file()
             return
             
         output_srt_path = base_path + ".srt"
@@ -196,11 +202,22 @@ class Worker(QObject):
             self.finished.emit(f"任务成功完成！\nSRT和JSON文件已保存到源文件目录。")
         except Exception as e:
             self.error.emit(f"保存SRT文件时出错: {e}")
+        finally:
+            self._cleanup_temp_file()
 
     def request_cancellation(self):
         self.log_message.emit("正在取消上传...")
         if self.uploader:
             self.uploader.cancel()
+        self._cleanup_temp_file()
+
+    def _cleanup_temp_file(self):
+        if self.is_temp_file and os.path.exists(self.file_path):
+            try:
+                os.remove(self.file_path)
+                self.log_message.emit(f"已清理临时文件: {os.path.basename(self.file_path)}")
+            except OSError as e:
+                self.log_message.emit(f"清理临时文件失败: {e}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -221,7 +238,9 @@ class MainWindow(QMainWindow):
         self.selected_file_path = None
         self.thread = None
         self.worker = None
+        self.temp_audio_file = None
         self.setup_ui()
+        self.ffmpeg_available = self.is_ffmpeg_available()
         self.select_button.clicked.connect(self.select_file)
         self.start_button.clicked.connect(self.start_process)
         self.cancel_button.clicked.connect(self.cancel_process)
@@ -245,18 +264,10 @@ class MainWindow(QMainWindow):
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(self.LANGUAGES.keys())
         self.lang_combo.setCurrentText("日语")
-        self.max_chars_label = QLabel("每行最大字数:")
-        self.max_chars_spinbox = QSpinBox()
-        self.max_chars_spinbox.setRange(10, 40)
-        self.max_chars_spinbox.setValue(18)
-        self.max_chars_spinbox.setToolTip("推荐值: 中文 18, 日文 17")
         self.audio_events_checkbox = QCheckBox("识别声音事件")
         self.audio_events_checkbox.setChecked(True)
         options_layout.addWidget(self.lang_label)
         options_layout.addWidget(self.lang_combo)
-        options_layout.addSpacing(20)
-        options_layout.addWidget(self.max_chars_label)
-        options_layout.addWidget(self.max_chars_spinbox)
         options_layout.addStretch()
         options_layout.addWidget(self.audio_events_checkbox)
         main_layout.addLayout(options_layout)
@@ -304,23 +315,96 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "选择一个音视频文件", "", "音视频文件 (*.mp3 *.wav *.flac *.m4a *.mp4 *.mov *.mkv);;所有文件 (*)")
         self.set_file(file_path)
 
+    def is_ffmpeg_available(self):
+        """Check if ffmpeg is in the system's PATH."""
+        if shutil.which("ffmpeg"):
+            self.log_area.append("✅ FFmpeg 已找到，将启用视频文件处理。")
+            return True
+        else:
+            self.log_area.append("⚠️ 未找到 FFmpeg。处理视频时将尝试直接上传原始文件。")
+            self.log_area.append("   为获得最佳体验，推荐安装 FFmpeg 并将其添加到系统 PATH。")
+            return False
+
+    def extract_audio(self, video_path):
+        """Extracts audio from a video file using ffmpeg."""
+        self.log_area.append(f"检测到视频文件，正在使用 FFmpeg 提取音频...")
+        self.progress_label.setText("正在提取音频...")
+        try:
+            output_filename = f"temp_audio_{os.path.basename(video_path)}.mp3"
+            output_path = os.path.join(os.path.dirname(video_path), output_filename)
+            
+            # Use CREATE_NO_WINDOW flag on Windows to hide the console
+            startupinfo = None
+            if sys.platform == "win32":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            command = [
+                "ffmpeg", "-i", video_path,
+                "-vn",         # No video
+                "-b:a", "192k", # Audio bitrate 192kbps
+                "-y",          # Overwrite output file if it exists
+                output_path
+            ]
+            
+            process = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', startupinfo=startupinfo)
+            
+            self.log_area.append(f"音频提取成功: {os.path.basename(output_path)}")
+            self.temp_audio_file = output_path # Store for later cleanup
+            return output_path
+        except FileNotFoundError:
+            self.on_task_error("FFmpeg 未找到。请确保它已安装并位于系统的PATH中。")
+            return None
+        except subprocess.CalledProcessError as e:
+            error_message = "FFmpeg 提取音频失败。\n"
+            error_message += f"返回码: {e.returncode}\n"
+            # Try to decode stderr, but fall back if there are encoding issues
+            try:
+                stderr_output = e.stderr.strip()
+                error_message += f"FFmpeg 输出:\n{stderr_output}"
+            except Exception as decode_error:
+                error_message += f"(无法解码 FFmpeg 的错误输出: {decode_error})"
+
+            self.on_task_error(error_message)
+            return None
+        except Exception as e:
+            self.on_task_error(f"提取音频时发生未知错误: {e}")
+            return None
+
     def start_process(self):
         if not self.selected_file_path:
             QMessageBox.warning(self, "警告", "请先选择一个文件！")
             return
+
         self.set_ui_enabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
-        self.progress_label.setText("准备上传...")
+        self.progress_label.setText("准备中...")
         self.progress_label.setVisible(True)
         
+        file_to_process = self.selected_file_path
+        original_file = self.selected_file_path
+        
+        # Check if it's a video file and if ffmpeg is available
+        _, ext = os.path.splitext(file_to_process)
+        video_extensions = ['.mp4', '.mkv', '.mov', '.avi', '.flv', '.webm']
+        if ext.lower() in video_extensions:
+            if self.ffmpeg_available:
+                extracted_audio = self.extract_audio(file_to_process)
+                if not extracted_audio:
+                    self.reset_ui_after_task() # Reset UI if extraction fails
+                    return
+                file_to_process = extracted_audio
+            else:
+                QMessageBox.warning(self, "功能限制", "检测到视频文件，但未找到 FFmpeg。\n请安装 FFmpeg 并将其添加到系统 PATH 以处理视频。\n\n将尝试直接上传原始文件，但这可能失败。")
+                self.log_area.append("警告: 正在尝试直接上传视频文件...")
+
         selected_lang_text = self.lang_combo.currentText()
         selected_lang_code = self.LANGUAGES.get(selected_lang_text, "auto")
         tag_audio_events_enabled = self.audio_events_checkbox.isChecked()
-        max_chars_value = self.max_chars_spinbox.value()
         
         self.thread = QThread()
-        self.worker = Worker(self.selected_file_path, selected_lang_code, tag_audio_events_enabled, max_chars_value)
+        self.worker = Worker(file_to_process, selected_lang_code, tag_audio_events_enabled, original_file_path=original_file)
         self.worker.moveToThread(self.thread)
 
         self.worker.finished.connect(self.on_task_finished)
@@ -337,6 +421,7 @@ class MainWindow(QMainWindow):
     def on_task_finished(self, message: str):
         self.log_area.append(f"\n✅ {message}")
         QMessageBox.information(self, "成功", message)
+        self.cleanup_temp_file()
         self.reset_ui_after_task()
         self.set_file(None)
 
@@ -355,6 +440,7 @@ class MainWindow(QMainWindow):
         self.log_area.append(f"\n❌ {message}")
         if "用户取消" not in message:
             QMessageBox.critical(self, "错误", message)
+        self.cleanup_temp_file()
         self.reset_ui_after_task()
         self.reset_file_label()
     
@@ -362,6 +448,7 @@ class MainWindow(QMainWindow):
         self.log_area.append("\n正在请求取消任务...")
         if self.worker:
             self.worker.request_cancellation()
+        self.cleanup_temp_file()
 
     def reset_ui_after_task(self):
         self.set_ui_enabled(True)
@@ -377,7 +464,6 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(enabled and self.selected_file_path is not None)
         self.select_button.setEnabled(enabled)
         self.lang_combo.setEnabled(enabled)
-        self.max_chars_spinbox.setEnabled(enabled)
         self.audio_events_checkbox.setEnabled(enabled)
         self.setAcceptDrops(enabled)
 
@@ -393,4 +479,14 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.cancel_process()
         QThreadPool.globalInstance().waitForDone(-1) # Wait for all threads to finish
+        self.cleanup_temp_file() # Final cleanup on close
         event.accept()
+
+    def cleanup_temp_file(self):
+        if self.temp_audio_file and os.path.exists(self.temp_audio_file):
+            try:
+                os.remove(self.temp_audio_file)
+                self.log_area.append(f"已清理临时文件: {os.path.basename(self.temp_audio_file)}")
+                self.temp_audio_file = None
+            except OSError as e:
+                self.log_area.append(f"关闭时清理临时文件失败: {e}")
