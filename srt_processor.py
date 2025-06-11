@@ -21,11 +21,13 @@ class SrtProcessor:
     Processes word-level transcription data into professional SRT subtitles
     using a two-stage approach: semantic grouping and visual formatting.
     """
-    def __init__(self, json_data: Dict):
+    def __init__(self, json_data: Dict, pause_threshold: float = PAUSE_THRESHOLD, max_subtitle_duration: float = MAX_SUBTITLE_DURATION):
         self.srt_content = []
         self.line_number = 1
         self.language = json_data.get("language_code", "eng")[:3] # e.g., "eng"
         self.max_chars_per_line = self._get_max_chars_for_language()
+        self.pause_threshold = pause_threshold
+        self.max_subtitle_duration = max_subtitle_duration
         self._preprocess_words(json_data)
 
     def _get_max_chars_for_language(self) -> int:
@@ -156,12 +158,12 @@ class SrtProcessor:
                 next_word = self.words[i+1]
                 if next_word.get("type") != "audio_event":
                     next_start_time = next_word['start']
-                    if (next_start_time - word['end']) > PAUSE_THRESHOLD:
+                    if (next_start_time - word['end']) > self.pause_threshold:
                         long_pause = True
             
             # Check for duration limit
             duration_so_far = word['end'] - current_block[0]['start']
-            duration_exceeded = duration_so_far > MAX_SUBTITLE_DURATION
+            duration_exceeded = duration_so_far > self.max_subtitle_duration
 
             if is_last_word or ends_with_hard_break or long_pause or duration_exceeded:
                 self._finalize_and_add_subtitle(current_block, next_word_start=next_start_time)
@@ -169,12 +171,12 @@ class SrtProcessor:
                 
         return "\n".join(self.srt_content)
 
-def create_srt_from_json(json_data: Dict) -> str:
+def create_srt_from_json(json_data: Dict, pause_threshold: float = PAUSE_THRESHOLD, max_subtitle_duration: float = MAX_SUBTITLE_DURATION) -> str:
     """
     Processes transcription JSON data to create a professional SRT file.
     The max_chars_per_line is now determined automatically based on language.
     """
-    processor = SrtProcessor(json_data)
+    processor = SrtProcessor(json_data, pause_threshold, max_subtitle_duration)
     return processor.create_srt()
 
 if __name__ == '__main__':
@@ -204,7 +206,7 @@ if __name__ == '__main__':
                         test_json_data = json.load(f)
                     
                     # The max_chars_per_line argument is no longer needed.
-                    generated_srt = create_srt_from_json(test_json_data)
+                    generated_srt = create_srt_from_json(test_json_data) # Uses default params in test mode
                     
                     with open(srt_path, 'w', encoding='utf-8') as f_out:
                         f_out.write(generated_srt)

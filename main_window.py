@@ -10,12 +10,19 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QFileDialog, QMessageBox, QComboBox,
-    QCheckBox, QSpinBox, QProgressBar
+    QCheckBox, QSpinBox, QProgressBar, QDialog, QFormLayout, QDialogButtonBox,
+    QDoubleSpinBox
 )
-from PySide6.QtCore import QThread, QObject, Signal, Qt, QThreadPool
+from PySide6.QtCore import (
+    QThread, QObject, Signal, Qt, QThreadPool, QRect, QPoint, QSize
+)
+from PySide6.QtGui import QPainter, QColor, QPen, QPolygon, QBrush, QFontMetrics
 
 from api_client import ElevenLabsSTTClient, Uploader
-from srt_processor import create_srt_from_json
+from srt_processor import create_srt_from_json, PAUSE_THRESHOLD, MAX_SUBTITLE_DURATION
+
+
+SETTINGS_FILE = "settings.json"
 
 STYLESHEET = """
 QWidget {
@@ -82,27 +89,6 @@ QComboBox QAbstractItemView {
     background-color: #3C3C3C;
     outline: 0px;
 }
-QCheckBox {
-    spacing: 10px;
-}
-QCheckBox::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    border: 1px solid #888;
-    background-color: #3C3C3C;
-}
-QCheckBox::indicator:hover {
-    border: 1px solid #aaa;
-}
-QCheckBox::indicator:checked {
-    background-color: #0078D7;
-    border-color: #0078D7;
-}
-QCheckBox::indicator:disabled {
-    border-color: #555;
-    background-color: #444;
-}
 QMessageBox {
     background-color: #333333;
 }
@@ -139,6 +125,84 @@ QProgressBar::chunk {
 }
 """
 
+class CustomCheckBox(QCheckBox):
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self.setMinimumHeight(22)
+
+    def sizeHint(self) -> QSize:
+        """Provide a size hint to the layout system."""
+        fm = QFontMetrics(self.font())
+        # Use horizontalAdvance for accurate string width calculation
+        text_width = fm.horizontalAdvance(self.text())
+        spacing = 10
+        box_size = 20
+        # Add some horizontal padding for better spacing
+        h_padding = 5
+        
+        width = box_size + spacing + text_width + h_padding
+        height = max(box_size, fm.height())
+        
+        return QSize(width, height)
+
+    def paintEvent(self, event):
+        """Custom paint event to draw the checkbox."""
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            is_checked = self.isChecked()
+            is_enabled = self.isEnabled()
+            is_hovered = self.underMouse()
+
+            border_color_unchecked = QColor("#AAAAAA")
+            border_color_unchecked_hover = QColor("#CCCCCC")
+            bg_color_checked = QColor("#0078D7")
+            bg_color_checked_hover = QColor("#008CFF")
+            border_color_disabled = QColor("#555555")
+            bg_color_disabled = QColor("#444444")
+            text_color = QColor("#F0F0F0")
+            text_color_disabled = QColor("#888888")
+            checkmark_color = QColor(Qt.white)
+
+            spacing = 10
+            box_size = 20
+            rect = self.rect()
+            box_rect = QRect(0, int((rect.height() - box_size) / 2), box_size, box_size)
+
+            painter.save()
+
+            painter.setPen(Qt.NoPen)
+            if not is_enabled:
+                painter.setBrush(bg_color_disabled)
+                painter.setPen(QPen(border_color_disabled, 1))
+            elif is_checked:
+                painter.setBrush(bg_color_checked_hover if is_hovered else bg_color_checked)
+            else: 
+                painter.setBrush(Qt.transparent)
+                painter.setPen(QPen(border_color_unchecked_hover if is_hovered else border_color_unchecked, 1))
+            
+            painter.drawRoundedRect(box_rect, 4, 4)
+
+            if is_checked:
+                painter.setPen(QPen(checkmark_color, 2))
+                points = QPolygon([
+                    QPoint(box_rect.left() + 5, box_rect.top() + 10),
+                    QPoint(box_rect.left() + 9, box_rect.top() + 14),
+                    QPoint(box_rect.left() + 15, box_rect.top() + 6)
+                ])
+                painter.drawPolyline(points)
+
+            text_rect = QRect(box_rect.right() + spacing, 0, rect.width() - box_size - spacing, rect.height())
+            painter.setPen(text_color_disabled if not is_enabled else text_color)
+            painter.drawText(text_rect, Qt.AlignVCenter, self.text())
+            
+            painter.restore()
+        finally:
+            # Ensure the painter is always ended, even if errors occur
+            painter.end()
+
+
 class Worker(QObject):
     """
     Coordinates the transcription task, managing the Uploader thread and post-processing.
@@ -148,13 +212,17 @@ class Worker(QObject):
     log_message = Signal(str)
     progress_updated = Signal(int, int)
 
-    def __init__(self, file_path: str, language_code: str, tag_audio_events: bool, original_file_path: Optional[str] = None):
+    def __init__(self, file_path: str, language_code: str, tag_audio_events: bool,
+                 pause_threshold: float, max_subtitle_duration: float,
+                 original_file_path: Optional[str] = None):
         super().__init__()
-        self.file_path = file_path # This might be a temporary audio file
+        self.file_path = file_path
         self.original_file_path = original_file_path if original_file_path else file_path
         self.is_temp_file = (file_path != self.original_file_path)
         self.language_code = language_code
         self.tag_audio_events = tag_audio_events
+        self.pause_threshold = pause_threshold
+        self.max_subtitle_duration = max_subtitle_duration
         self.uploader = None
         self.client = ElevenLabsSTTClient(signals_forwarder=self)
 
@@ -167,7 +235,6 @@ class Worker(QObject):
             self.error.emit("任务准备失败，请检查文件路径。")
             return
 
-        # Connect signals from the uploader thread
         self.uploader.signals.progress.connect(self.progress_updated)
         self.uploader.signals.finished.connect(self.on_upload_finished)
         self.uploader.signals.error.connect(self.error)
@@ -175,21 +242,23 @@ class Worker(QObject):
         QThreadPool.globalInstance().start(self.uploader)
 
     def on_upload_finished(self, transcript_json):
-        self.log_message.emit("上传成功！正在处理和生成SRT文件...")
-        
-        # Use the original file path for output files
         base_path, _ = os.path.splitext(self.original_file_path)
         output_json_path = base_path + ".json"
         try:
             with open(output_json_path, 'w', encoding='utf-8') as f:
                 json.dump(transcript_json, f, ensure_ascii=False, indent=4)
-            self.log_message.emit(f"JSON 文件已保存到:\n{output_json_path}")
+            self.log_message.emit(f"转录成功！转录文本已保存到:\n{output_json_path}")
+            self.log_message.emit("正在处理和生成SRT字幕文件...")
         except Exception as e:
             self.error.emit(f"保存 JSON 文件时出错: {e}")
             self._cleanup_temp_file()
             return
 
-        srt_data = create_srt_from_json(transcript_json)
+        srt_data = create_srt_from_json(
+            transcript_json,
+            pause_threshold=self.pause_threshold,
+            max_subtitle_duration=self.max_subtitle_duration
+        )
         if not srt_data:
             self.error.emit("从JSON生成SRT失败。")
             self._cleanup_temp_file()
@@ -199,7 +268,8 @@ class Worker(QObject):
         try:
             with open(output_srt_path, 'w', encoding='utf-8') as f:
                 f.write(srt_data)
-            self.finished.emit(f"任务成功完成！\nSRT和JSON文件已保存到源文件目录。")
+            self.log_message.emit(f"SRT字幕文件已保存到:\n{output_srt_path}")
+            self.finished.emit("任务成功完成！")
         except Exception as e:
             self.error.emit(f"保存SRT文件时出错: {e}")
         finally:
@@ -218,6 +288,56 @@ class Worker(QObject):
                 self.log_message.emit(f"已清理临时文件: {os.path.basename(self.file_path)}")
             except OSError as e:
                 self.log_message.emit(f"清理临时文件失败: {e}")
+
+class SettingsDialog(QDialog):
+    def __init__(self, current_settings: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("字幕生成设置")
+        self.setMinimumWidth(350)
+        
+        self.pause_threshold_spin = QDoubleSpinBox()
+        self.pause_threshold_spin.setDecimals(1)
+        self.pause_threshold_spin.setSingleStep(0.1)
+        self.pause_threshold_spin.setRange(0.1, 5.0)
+        self.pause_threshold_spin.setSuffix(" 秒")
+        self.pause_threshold_spin.setValue(current_settings.get("pause_threshold", PAUSE_THRESHOLD))
+
+        self.max_duration_spin = QDoubleSpinBox()
+        self.max_duration_spin.setDecimals(1)
+        self.max_duration_spin.setSingleStep(0.5)
+        self.max_duration_spin.setRange(2.0, 20.0)
+        self.max_duration_spin.setSuffix(" 秒")
+        self.max_duration_spin.setValue(current_settings.get("max_subtitle_duration", MAX_SUBTITLE_DURATION))
+        
+        form_layout = QFormLayout()
+        form_layout.addRow("长停顿阈值:", self.pause_threshold_spin)
+        form_layout.addRow("单条字幕最长持续时间:", self.max_duration_spin)
+
+        self.button_box = QDialogButtonBox()
+        self.save_button = self.button_box.addButton("保存", QDialogButtonBox.AcceptRole)
+        self.reset_button = self.button_box.addButton("重置为默认值", QDialogButtonBox.ResetRole)
+        self.cancel_button = self.button_box.addButton("取消", QDialogButtonBox.RejectRole)
+        
+        self.reset_button.clicked.connect(self.reset_to_defaults)
+
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(form_layout)
+        main_layout.addWidget(self.button_box)
+        self.setLayout(main_layout)
+
+    def reset_to_defaults(self):
+        self.pause_threshold_spin.setValue(PAUSE_THRESHOLD)
+        self.max_duration_spin.setValue(MAX_SUBTITLE_DURATION)
+
+    def get_settings(self) -> dict:
+        return {
+            "pause_threshold": self.pause_threshold_spin.value(),
+            "max_subtitle_duration": self.max_duration_spin.value(),
+        }
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -239,46 +359,70 @@ class MainWindow(QMainWindow):
         self.thread = None
         self.worker = None
         self.temp_audio_file = None
+        self.upload_complete_logged = False
+        self.file_to_process_on_retry = None
+        
+        self.load_settings()
+
         self.setup_ui()
         self.ffmpeg_available = self.is_ffmpeg_available()
         self.select_button.clicked.connect(self.select_file)
         self.start_button.clicked.connect(self.start_process)
         self.cancel_button.clicked.connect(self.cancel_process)
+        self.settings_button.clicked.connect(self.open_settings_dialog)
 
     def setup_ui(self):
         container = QWidget()
+        container.setStyleSheet(STYLESHEET) 
+
         main_layout = QVBoxLayout(container)
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
+        
         self.file_drop_label = QLabel("将音视频文件拖拽到此处\n\n或")
         self.file_drop_label.setAlignment(Qt.AlignCenter)
         self.file_drop_label.setObjectName("FileDropLabel")
+        
         self.select_button = QPushButton("点击选择文件")
+        
         file_layout = QVBoxLayout()
         file_layout.addWidget(self.file_drop_label)
         file_layout.addWidget(self.select_button, 0, Qt.AlignCenter)
         main_layout.addLayout(file_layout)
+        
         options_layout = QHBoxLayout()
         options_layout.setSpacing(10)
+        
         self.lang_label = QLabel("源语言:")
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(self.LANGUAGES.keys())
-        self.lang_combo.setCurrentText("日语")
-        self.audio_events_checkbox = QCheckBox("识别声音事件")
-        self.audio_events_checkbox.setChecked(True)
+        self.lang_combo.setCurrentText("自动检测")
+        
+        self.audio_events_checkbox = CustomCheckBox("识别声音事件")
+        self.audio_events_checkbox.setChecked(False)
+        
         options_layout.addWidget(self.lang_label)
         options_layout.addWidget(self.lang_combo)
-        options_layout.addStretch()
+        options_layout.addSpacing(20)
         options_layout.addWidget(self.audio_events_checkbox)
+        options_layout.addStretch(1)
+
+        self.settings_button = QPushButton("字幕设置")
+        options_layout.addWidget(self.settings_button)
+
         main_layout.addLayout(options_layout)
+        
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(False)
+        
         self.progress_label = QLabel("")
         self.progress_label.setVisible(False)
         self.progress_label.setAlignment(Qt.AlignCenter)
+        
         main_layout.addWidget(self.progress_label)
         main_layout.addWidget(self.progress_bar)
+        
         action_layout = QHBoxLayout()
         self.start_button = QPushButton("生成字幕")
         self.start_button.setObjectName("StartButton")
@@ -288,11 +432,42 @@ class MainWindow(QMainWindow):
         action_layout.addWidget(self.start_button)
         action_layout.addWidget(self.cancel_button)
         main_layout.addLayout(action_layout)
+        
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         self.log_area.setPlaceholderText("处理日志将在这里显示...")
         main_layout.addWidget(self.log_area)
+        
         self.setCentralWidget(container)
+
+    def load_settings(self):
+        self.settings = {
+            "pause_threshold": PAUSE_THRESHOLD,
+            "max_subtitle_duration": MAX_SUBTITLE_DURATION
+        }
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                    self.settings.update(json.load(f))
+            except (json.JSONDecodeError, TypeError):
+                print(f"警告: 无法解析 {SETTINGS_FILE}。将使用默认设置。")
+        self.pause_threshold = self.settings["pause_threshold"]
+        self.max_subtitle_duration = self.settings["max_subtitle_duration"]
+
+    def save_settings(self):
+        self.settings["pause_threshold"] = self.pause_threshold
+        self.settings["max_subtitle_duration"] = self.max_subtitle_duration
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(self.settings, f, indent=4)
+
+    def open_settings_dialog(self):
+        dialog = SettingsDialog(self.settings, self)
+        if dialog.exec():
+            new_settings = dialog.get_settings()
+            self.pause_threshold = new_settings["pause_threshold"]
+            self.max_subtitle_duration = new_settings["max_subtitle_duration"]
+            self.save_settings()
+            self.log_area.append("字幕生成设置已更新。")
 
     def reset_file_label(self):
         self.file_drop_label.setText("将音视频文件拖拽到此处\n\n或")
@@ -301,6 +476,7 @@ class MainWindow(QMainWindow):
     def set_file(self, file_path: Optional[str]):
         if file_path and os.path.exists(file_path):
             self.selected_file_path = file_path
+            self.file_to_process_on_retry = None # Reset retry state when new file is selected
             file_name = os.path.basename(file_path)
             self.file_drop_label.setText(f"已选择:\n{file_name}")
             self.file_drop_label.setAlignment(Qt.AlignCenter)
@@ -312,7 +488,14 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(False)
 
     def select_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "选择一个音视频文件", "", "音视频文件 (*.mp3 *.wav *.flac *.m4a *.mp4 *.mov *.mkv);;所有文件 (*)")
+        dialog_title = "选择文件"
+        dialog_filter = (
+            "支持的文件 (*.mp3 *.wav *.flac *.m4a *.aac *.mp4 *.mov *.mkv *.json);;"
+            "音视频文件 (*.mp3 *.wav *.flac *.m4a *.aac *.mp4 *.mov *.mkv);;"
+            "JSON转录文件 (*.json);;"
+            "所有文件 (*)"
+        )
+        file_path, _ = QFileDialog.getOpenFileName(self, dialog_title, "", dialog_filter)
         self.set_file(file_path)
 
     def is_ffmpeg_available(self):
@@ -325,6 +508,44 @@ class MainWindow(QMainWindow):
             self.log_area.append("   为获得最佳体验，推荐安装 FFmpeg 并将其添加到系统 PATH。")
             return False
 
+    def process_json_file_directly(self, json_path: str):
+        """Processes a local JSON file directly into an SRT file."""
+        self.set_ui_enabled(False)
+        self.log_area.clear()
+        self.log_area.append("="*50)
+        self.log_area.append(f"检测到JSON文件: {os.path.basename(json_path)}")
+        self.log_area.append("跳过上传和转录，将直接使用当前设置生成SRT文件...")
+
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                json_data = json.load(f)
+
+            self.log_area.append("正在处理和生成SRT字幕文件...")
+
+            srt_data = create_srt_from_json(
+                json_data,
+                pause_threshold=self.pause_threshold,
+                max_subtitle_duration=self.max_subtitle_duration
+            )
+
+            if not srt_data and not json_data.get("words"):
+                self.on_task_error("从JSON生成SRT失败。文件可能为空或不包含'words'数据。")
+                return
+
+            base_path, _ = os.path.splitext(json_path)
+            output_srt_path = base_path + ".srt"
+
+            with open(output_srt_path, 'w', encoding='utf-8') as f:
+                f.write(srt_data)
+
+            self.log_area.append(f"SRT字幕文件已保存到:\n{output_srt_path}")
+            self.on_task_finished("JSON文件处理成功！")
+
+        except json.JSONDecodeError:
+            self.on_task_error("无法解析JSON文件。请检查文件格式是否正确。")
+        except Exception as e:
+            self.on_task_error(f"处理JSON文件时发生未知错误: {e}")
+
     def extract_audio(self, video_path):
         """Extracts audio from a video file using ffmpeg."""
         self.log_area.append(f"检测到视频文件，正在使用 FFmpeg 提取音频...")
@@ -333,7 +554,6 @@ class MainWindow(QMainWindow):
             output_filename = f"temp_audio_{os.path.basename(video_path)}.mp3"
             output_path = os.path.join(os.path.dirname(video_path), output_filename)
             
-            # Use CREATE_NO_WINDOW flag on Windows to hide the console
             startupinfo = None
             if sys.platform == "win32":
                 startupinfo = subprocess.STARTUPINFO()
@@ -341,16 +561,16 @@ class MainWindow(QMainWindow):
 
             command = [
                 "ffmpeg", "-i", video_path,
-                "-vn",         # No video
-                "-b:a", "192k", # Audio bitrate 192kbps
-                "-y",          # Overwrite output file if it exists
+                "-vn",
+                "-b:a", "192k",
+                "-y",
                 output_path
             ]
             
-            process = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', startupinfo=startupinfo)
+            subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', startupinfo=startupinfo)
             
             self.log_area.append(f"音频提取成功: {os.path.basename(output_path)}")
-            self.temp_audio_file = output_path # Store for later cleanup
+            self.temp_audio_file = output_path
             return output_path
         except FileNotFoundError:
             self.on_task_error("FFmpeg 未找到。请确保它已安装并位于系统的PATH中。")
@@ -358,7 +578,6 @@ class MainWindow(QMainWindow):
         except subprocess.CalledProcessError as e:
             error_message = "FFmpeg 提取音频失败。\n"
             error_message += f"返回码: {e.returncode}\n"
-            # Try to decode stderr, but fall back if there are encoding issues
             try:
                 stderr_output = e.stderr.strip()
                 error_message += f"FFmpeg 输出:\n{stderr_output}"
@@ -376,6 +595,13 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "警告", "请先选择一个文件！")
             return
 
+        _, ext = os.path.splitext(self.selected_file_path)
+
+        if ext.lower() == '.json':
+            self.process_json_file_directly(self.selected_file_path)
+            return
+
+        self.upload_complete_logged = False
         self.set_ui_enabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
@@ -385,26 +611,45 @@ class MainWindow(QMainWindow):
         file_to_process = self.selected_file_path
         original_file = self.selected_file_path
         
-        # Check if it's a video file and if ffmpeg is available
-        _, ext = os.path.splitext(file_to_process)
         video_extensions = ['.mp4', '.mkv', '.mov', '.avi', '.flv', '.webm']
         if ext.lower() in video_extensions:
             if self.ffmpeg_available:
                 extracted_audio = self.extract_audio(file_to_process)
                 if not extracted_audio:
-                    self.reset_ui_after_task() # Reset UI if extraction fails
+                    self.reset_ui_after_task()
                     return
                 file_to_process = extracted_audio
             else:
                 QMessageBox.warning(self, "功能限制", "检测到视频文件，但未找到 FFmpeg。\n请安装 FFmpeg 并将其添加到系统 PATH 以处理视频。\n\n将尝试直接上传原始文件，但这可能失败。")
                 self.log_area.append("警告: 正在尝试直接上传视频文件...")
+        
+        self._execute_transcription_task(file_to_process, original_file)
+
+    def _execute_transcription_task(self, file_to_process, original_file):
+        if self.thread and self.thread.isRunning():
+            self.thread.quit()
+            self.thread.wait()
+
+        self.upload_complete_logged = False # Reset for retry
+        self.set_ui_enabled(False) # Ensure UI is in processing state
+        self.progress_bar.setValue(0)
+        self.log_area.append("开始执行转录任务...")
+
+        self.file_to_process_on_retry = file_to_process # Save for potential retry
 
         selected_lang_text = self.lang_combo.currentText()
         selected_lang_code = self.LANGUAGES.get(selected_lang_text, "auto")
         tag_audio_events_enabled = self.audio_events_checkbox.isChecked()
         
         self.thread = QThread()
-        self.worker = Worker(file_to_process, selected_lang_code, tag_audio_events_enabled, original_file_path=original_file)
+        self.worker = Worker(
+            file_path=file_to_process,
+            language_code=selected_lang_code,
+            tag_audio_events=tag_audio_events_enabled,
+            original_file_path=original_file,
+            pause_threshold=self.pause_threshold,
+            max_subtitle_duration=self.max_subtitle_duration
+        )
         self.worker.moveToThread(self.thread)
 
         self.worker.finished.connect(self.on_task_finished)
@@ -419,11 +664,11 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def on_task_finished(self, message: str):
-        self.log_area.append(f"\n✅ {message}")
         QMessageBox.information(self, "成功", message)
         self.cleanup_temp_file()
         self.reset_ui_after_task()
         self.set_file(None)
+        self.log_area.append(f"\n✅ 任务已完成！")
 
     def update_progress(self, bytes_sent, total_bytes):
         if total_bytes > 0:
@@ -432,6 +677,9 @@ class MainWindow(QMainWindow):
             sent_mb = bytes_sent / (1024 * 1024)
             total_mb = total_bytes / (1024 * 1024)
             self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB / {total_mb:.2f} MB")
+            if percentage == 100 and not self.upload_complete_logged:
+                self.log_area.append("上传成功！正在转录中...")
+                self.upload_complete_logged = True
         else:
             sent_mb = bytes_sent / (1024 * 1024)
             self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB")
@@ -439,16 +687,36 @@ class MainWindow(QMainWindow):
     def on_task_error(self, message: str):
         self.log_area.append(f"\n❌ {message}")
         if "用户取消" not in message:
-            QMessageBox.critical(self, "错误", message)
-        self.cleanup_temp_file()
-        self.reset_ui_after_task()
-        self.reset_file_label()
-    
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setWindowTitle("错误")
+            msg_box.setText("上传或转录失败。")
+            msg_box.setInformativeText(message)
+            retry_button = QPushButton("重试")
+            close_button = QPushButton("关闭")
+            msg_box.addButton(retry_button, QMessageBox.AcceptRole)
+            msg_box.addButton(close_button, QMessageBox.RejectRole)
+            
+            msg_box.exec()
+
+            if msg_box.clickedButton() == retry_button:
+                self.log_area.append("\n... 用户选择重试 ...")
+                self._execute_transcription_task(self.file_to_process_on_retry, self.selected_file_path)
+            else:
+                self.cleanup_temp_file()
+                self.reset_ui_after_task()
+                self.reset_file_label()
+        else:
+            self.cleanup_temp_file()
+            self.reset_ui_after_task()
+            self.reset_file_label()
+
     def cancel_process(self):
         self.log_area.append("\n正在请求取消任务...")
-        if self.worker:
+        if self.worker and self.thread and self.thread.isRunning():
             self.worker.request_cancellation()
-        self.cleanup_temp_file()
+        else:
+            self.cleanup_temp_file()
 
     def reset_ui_after_task(self):
         self.set_ui_enabled(True)
@@ -465,6 +733,7 @@ class MainWindow(QMainWindow):
         self.select_button.setEnabled(enabled)
         self.lang_combo.setEnabled(enabled)
         self.audio_events_checkbox.setEnabled(enabled)
+        self.settings_button.setEnabled(enabled)
         self.setAcceptDrops(enabled)
 
     def dragEnterEvent(self, event):
@@ -478,8 +747,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.cancel_process()
-        QThreadPool.globalInstance().waitForDone(-1) # Wait for all threads to finish
-        self.cleanup_temp_file() # Final cleanup on close
+        QThreadPool.globalInstance().waitForDone(-1)
+        self.cleanup_temp_file()
         event.accept()
 
     def cleanup_temp_file(self):
