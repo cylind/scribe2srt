@@ -1,6 +1,6 @@
 # Scribe to SRT (Powered by ElevenLabs)
 
-[![Latest Release](https://img.shields.io/github/v/release/cylind/scribe2srt?style=for-the-badge&logo=github)](https://github.com/your-username/scribe2srt/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/cylind/scribe2srt?style=for-the-badge&logo=github)](https://github.com/cylind/scribe2srt/releases/latest)
 
 这是一个使用 Python 和 PySide6 构建的桌面应用程序，它可以将**音频/视频文件**或 **ElevenLabs Scribe 的 JSON 转录文本**通过 [ElevenLabs Speech-to-Text API](https://elevenlabs.io/speech-to-text) 转换为专业的 `.srt` 字幕文件。
 
@@ -115,5 +115,3 @@ python app.py
 ## 🛠️ 关于 ElevenLabs API
 
 本工具使用 ElevenLabs 的语音转文本 API。当前版本的代码使用了允许**未经身份验证**的 API 端点，因此**不需要**手动配置 API 密钥。
-
-请注意，API 的使用条款和限制可能会发生变化。如果将来需要 API 密钥，则需要修改 `api_client.py` 文件以包含您的密钥。
