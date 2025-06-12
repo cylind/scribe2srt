@@ -28,28 +28,24 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-
       - name: Set asset properties (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           echo "EXECUTABLE_NAME=Scribe2SRT.exe" >> $env:GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ env.VERSION }}-windows-x86_64.zip" >> $env:GITHUB_ENV
+          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-windows-x86_64.zip" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Set asset properties (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ env.VERSION }}-macos-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-macos-x86_64.tar.gz" >> $GITHUB_ENV
 
       - name: Set asset properties (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ env.VERSION }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
 
       - name: Build with PyInstaller
         shell: bash
