@@ -1,0 +1,647 @@
+{
+    "additional_formats": null,
+    "language_code": "kor",
+    "language_probability": 1.0,
+    "text": "고대 엘도리아 땅 신비로운 빛깔로 물든 하늘과 오래된 비밀을 속삭이는 숲이 있는 곳에 제피로스라는 용이 살고 있었습니다. 인간의 마음을 공포로 물들인 무서운 용 이야기와 달리 제피로스는 경이로움과 지혜의 존재로 그의 존재를 아는 모든 이에게 존경받는 존재였습니다.",
+    "words": [
+        {
+            "characters": null,
+            "end": 0.62,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.239,
+            "text": "고대",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 0.62,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.62,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 1.24,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 0.62,
+            "text": "엘도리아",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 1.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.24,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 1.6,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.259,
+            "text": "땅",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 1.639,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.6,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 1.639,
+            "text": "신비로운",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.259,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.259,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 2.839,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.259,
+            "text": "빛깔로",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 2.839,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.839,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 3.599,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 2.839,
+            "text": "물든",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 3.619,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.599,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 4.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 3.619,
+            "text": "하늘과",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 4.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.159,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 4.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.159,
+            "text": "오래된",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 4.699,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.679,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 5.139,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 4.699,
+            "text": "비밀을",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 5.139,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.139,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 5.139,
+            "text": "속삭이는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.159,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.159,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.459,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.159,
+            "text": "숲이",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.46,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.459,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 6.779,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.46,
+            "text": "있는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 6.799,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.779,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 7.139,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 6.799,
+            "text": "곳에",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 7.379,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.139,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 8.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 7.379,
+            "text": "제피로스라는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 8.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.319,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 8.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.319,
+            "text": "용이",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 8.699,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.679,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 8.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.699,
+            "text": "살고",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 9.0,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 8.979,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 9.759,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.0,
+            "text": "있었습니다.",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 10.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 9.759,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 11.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 10.539,
+            "text": "인간의",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.079,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.039,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 11.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.079,
+            "text": "마음을",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 11.599,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.539,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 12.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 11.599,
+            "text": "공포로",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 12.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.039,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 12.859,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.039,
+            "text": "물들인",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 12.88,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.859,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.399,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 12.88,
+            "text": "무서운",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.42,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.399,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 13.64,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.42,
+            "text": "용",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 13.679,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.64,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 14.199,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 13.679,
+            "text": "이야기와",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 14.239,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.199,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 14.619,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.239,
+            "text": "달리",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 15.059,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 14.619,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 15.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.059,
+            "text": "제피로스는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 15.979,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.979,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 16.999,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 15.979,
+            "text": "경이로움과",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 17.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 16.999,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 17.479,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.039,
+            "text": "지혜의",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 17.5,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.479,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 17.999,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.5,
+            "text": "존재로",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.26,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 17.999,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 18.539,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.26,
+            "text": "그의",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 18.579,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.539,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.02,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 18.579,
+            "text": "존재를",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.059,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.02,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.379,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.059,
+            "text": "아는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.42,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.379,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 19.739,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.42,
+            "text": "모든",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 19.779,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.739,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 20.319,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 19.779,
+            "text": "이에게",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 20.359,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 20.319,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 21.12,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 20.359,
+            "text": "존경받는",
+            "type": "word"
+        },
+        {
+            "characters": null,
+            "end": 21.139,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 21.12,
+            "text": " ",
+            "type": "spacing"
+        },
+        {
+            "characters": null,
+            "end": 22.039,
+            "logprob": 0.0,
+            "speaker_id": "speaker_0",
+            "start": 21.139,
+            "text": "존재였습니다.",
+            "type": "word"
+        }
+    ]
+}

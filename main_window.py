@@ -354,7 +354,7 @@ class MainWindow(QMainWindow):
                     ctypes.windll.dwmapi.DwmSetWindowAttribute(HWND, DWMWA_USE_IMMERSIVE_DARK_MODE, ctypes.byref(value), ctypes.sizeof(value))
             except (AttributeError, TypeError, OSError) as e:
                 print(f"Could not set dark title bar: {e}")
-        self.LANGUAGES = {"日语": "ja", "中文": "zh", "英文": "en", "自动检测": "auto"}
+        self.LANGUAGES = {"韩语": "ko", "日语": "ja", "中文": "zh", "英文": "en", "自动检测": "auto"}
         self.selected_file_path = None
         self.thread = None
         self.worker = None
@@ -380,7 +380,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
         
-        self.file_drop_label = QLabel("将音视频文件拖拽到此处\n\n或")
+        self.file_drop_label = QLabel("将音视频或JSON文件拖拽到此处\n\n或")
         self.file_drop_label.setAlignment(Qt.AlignCenter)
         self.file_drop_label.setObjectName("FileDropLabel")
         
@@ -471,7 +471,7 @@ class MainWindow(QMainWindow):
             self.log_area.append("字幕生成设置已更新。")
 
     def reset_file_label(self):
-        self.file_drop_label.setText("将音视频文件拖拽到此处\n\n或")
+        self.file_drop_label.setText("将音视频或JSON文件拖拽到此处\n\n或")
         self.file_drop_label.setAlignment(Qt.AlignCenter)
 
     def set_file(self, file_path: Optional[str]):
