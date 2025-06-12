@@ -1,12 +1,14 @@
 # Scribe to SRT (Powered by ElevenLabs)
 
+[![Latest Release](https://img.shields.io/github/v/release/cylind/scribe2srt?style=for-the-badge&logo=github)](https://github.com/your-username/scribe2srt/releases/latest)
+
 这是一个使用 Python 和 PySide6 构建的桌面应用程序，它可以将音频或视频文件通过 [ElevenLabs Speech-to-Text API](https://elevenlabs.io/speech-to-text) 转换为专业的 `.srt` 字幕文件。
 
 本工具旨在简化为视频添加字幕的流程，特别是针对中文和日文内容，提供了智能的字幕切分和格式化规则，以生成高质量、易于阅读的字幕。
 
 ## ✨ 功能特性
 
-- **高效视频处理 (可选, 需安装 FFmpeg)**: 若已安装 FFmpeg，在处理视频文件时，应用会自动提取音频流，仅上传音频，极大地减少了上传数据量和处理时间。
+- **高效视频处理 (可选)**: 若系统已安装 FFmpeg，在处理视频文件时，应用会自动提取音频流，仅上传音频，极大地减少了上传数据量和处理时间。
 - **拖拽上传**: 支持将音视频文件直接拖拽到应用窗口。
 - **多语言支持**: 支持日语、中文、英文的语音识别，并可选择自动检测语言。
 - **专业级字幕引擎**:
@@ -16,11 +18,30 @@
 - **声音事件识别**: 可选择识别并标记非语音的声音事件（如 `[音乐]`、`[笑声]`）。
 - **实时进度**: 显示文件上传的实时进度。
 - **日志输出**: 在界面上提供详细的处理日志，方便追踪任务状态。
-- **跨平台**: 基于 PySide6 构建，理论上支持 Windows, macOS, 和 Linux。
+- **跨平台**: 基于 PySide6 构建，支持 Windows, macOS, 和 Linux。
+
+## 🖼️ 应用截图
+
+*(在此处添加您的应用截图)*
+
+![App Screenshot Placeholder](https://via.placeholder.com/700x450.png?text=Scribe2SRT+Application+Screenshot)
 
 ## 🚀 安装与运行
 
-请按照以下步骤在您的本地计算机上运行此应用。
+### 快速开始 (推荐)
+
+对于大多数用户，最简单的方式是直接从我们的 **Releases** 页面下载最新的预编译可执行文件。
+
+1.  **[➡️ 前往最新的 Release 页面](https://github.com/your-username/scribe2srt/releases/latest)**
+2.  根据您的操作系统，下载对应的文件（例如 `Scribe2SRT-v1.0.0-windows-x86_64.zip`）。
+3.  解压文件，直接运行其中的可执行程序即可。
+
+---
+
+<details>
+<summary><b>👨‍💻 开发者：从源码运行</b></summary>
+
+如果您是开发者或希望从源码运行，请按照以下步骤操作。
 
 **1. 克隆仓库**
 
@@ -77,6 +98,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
+</details>
+
 ## 📖 使用说明
 
 1.  **选择文件**:
@@ -85,7 +108,6 @@ python app.py
 2.  **配置选项**:
     - **源语言**: 选择音频的主要语言。如果选择 "自动检测"，ElevenLabs API 会尝试自动识别。
     - **识别声音事件**: 勾选此项后，API会尝试识别并输出 `[音乐]`、`[掌声]` 等非语音事件。
-    - **注意**: “每行最大字数”的设置已被移除。程序现在会根据所选语言自动应用最优的排版规则。
 3.  **开始生成**:
     - 点击 **"生成字幕"** 按钮。
     - 应用将开始上传文件，你可以在进度条和日志区域看到当前状态。
