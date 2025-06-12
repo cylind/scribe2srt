@@ -47,13 +47,13 @@ jobs:
           echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
           echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
 
-      - name: Build with PyInstaller
-        shell: bash
-        run: |
-          pyinstaller --onefile --windowed --noconsole \
-            --name "${{ env.EXECUTABLE_NAME }}" \
-            --add-data "settings.json:." \
-            app.py
+      - name: Setup UPX
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          upx-version: latest
+
+      - name: Build with PyInstaller using spec
+        run: pyinstaller Scribe2SRT.spec
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
