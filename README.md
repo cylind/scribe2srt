@@ -29,7 +29,7 @@
 
 对于大多数用户，最简单的方式是直接从我们的 **Releases** 页面下载最新的预编译可执行文件。
 
-1.  **[➡️ 前往最新的 Release 页面](https://github.com/your-username/scribe2srt/releases/latest)**
+1.  **[➡️ 前往最新的 Release 页面](https://github.com/cylind/scribe2srt/releases/latest)**
 2.  根据您的操作系统，下载对应的文件（例如 `Scribe2SRT-v1.0.0-windows-x86_64.zip`）。
 3.  解压文件，直接运行其中的可执行程序即可。
 
@@ -46,7 +46,7 @@
 **1. 克隆仓库**
 
 ```bash
-git clone https://github.com/your-username/scribe2srt.git
+git clone https://github.com/cylind/scribe2srt.git
 cd scribe2srt
 ```
 
