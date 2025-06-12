@@ -1,0 +1,77 @@
+name: Build and Release Scribe2SRT
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Set asset properties (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "ASSET_NAME=Scribe2SRT-Windows.exe" >> $env:GITHUB_ENV
+          echo "ASSET_PATH=dist/Scribe2SRT-Windows.exe" >> $env:GITHUB_ENV
+
+      - name: Set asset properties (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "ASSET_NAME=Scribe2SRT-macOS" >> $GITHUB_ENV
+          echo "ASSET_PATH=dist/Scribe2SRT-macOS" >> $GITHUB_ENV
+
+      - name: Set asset properties (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "ASSET_NAME=Scribe2SRT-Linux" >> $GITHUB_ENV
+          echo "ASSET_PATH=dist/Scribe2SRT-Linux" >> $GITHUB_ENV
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --noconsole \
+            --name ${{ env.ASSET_NAME }} \
+            --add-data "settings.json:." \
+            app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET_NAME }}
+          path: ${{ env.ASSET_PATH }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write # This permission is required to create releases and upload assets
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*/*

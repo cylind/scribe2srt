@@ -1,4 +1,4 @@
 {
-    "pause_threshold": 0.8,
-    "max_subtitle_duration": 8.0
+    "pause_threshold": 0.7,
+    "max_subtitle_duration": 7.0
 }

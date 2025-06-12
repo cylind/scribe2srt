@@ -361,6 +361,7 @@ class MainWindow(QMainWindow):
         self.temp_audio_file = None
         self.upload_complete_logged = False
         self.file_to_process_on_retry = None
+        self.is_retrying = False
         
         self.load_settings()
 
@@ -539,12 +540,21 @@ class MainWindow(QMainWindow):
                 f.write(srt_data)
 
             self.log_area.append(f"SRT字幕文件已保存到:\n{output_srt_path}")
-            self.on_task_finished("JSON文件处理成功！")
+            QMessageBox.information(self, "成功", "JSON文件处理成功！")
+            self.reset_ui_after_task()
+            self.set_file(None)
+            self.log_area.append(f"\n✅ 任务已完成！")
 
-        except json.JSONDecodeError:
-            self.on_task_error("无法解析JSON文件。请检查文件格式是否正确。")
+        except json.JSONDecodeError as e:
+            error_msg = f"无法解析JSON文件: {e}"
+            self.log_area.append(f"\n❌ {error_msg}")
+            QMessageBox.critical(self, "错误", error_msg)
+            self.reset_ui_after_task()
         except Exception as e:
-            self.on_task_error(f"处理JSON文件时发生未知错误: {e}")
+            error_msg = f"处理JSON文件时发生未知错误: {e}"
+            self.log_area.append(f"\n❌ {error_msg}")
+            QMessageBox.critical(self, "错误", error_msg)
+            self.reset_ui_after_task()
 
     def extract_audio(self, video_path):
         """Extracts audio from a video file using ffmpeg."""
@@ -626,16 +636,17 @@ class MainWindow(QMainWindow):
         self._execute_transcription_task(file_to_process, original_file)
 
     def _execute_transcription_task(self, file_to_process, original_file):
+        # This check is still valid here to prevent starting a new task if one is running.
         if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait()
+            QMessageBox.warning(self, "提示", "一个任务已经在运行中。")
+            return
 
-        self.upload_complete_logged = False # Reset for retry
-        self.set_ui_enabled(False) # Ensure UI is in processing state
+        self.upload_complete_logged = False
+        self.set_ui_enabled(False)
         self.progress_bar.setValue(0)
         self.log_area.append("开始执行转录任务...")
 
-        self.file_to_process_on_retry = file_to_process # Save for potential retry
+        self.file_to_process_on_retry = file_to_process
 
         selected_lang_text = self.lang_combo.currentText()
         selected_lang_code = self.LANGUAGES.get(selected_lang_text, "auto")
@@ -652,23 +663,29 @@ class MainWindow(QMainWindow):
         )
         self.worker.moveToThread(self.thread)
 
+        # --- Connections ---
+        # Worker signals to main window slots
         self.worker.finished.connect(self.on_task_finished)
         self.worker.error.connect(self.on_task_error)
         self.worker.log_message.connect(self.log_area.append)
         self.worker.progress_updated.connect(self.update_progress)
         
-        self.thread.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        
+        # Thread signals
         self.thread.started.connect(self.worker.run)
+        # The key change: Connect thread's finished signal to a dedicated cleanup slot
+        self.thread.finished.connect(self._on_thread_cleanup)
+        
         self.thread.start()
 
     def on_task_finished(self, message: str):
         QMessageBox.information(self, "成功", message)
+        self.log_area.append(f"\n✅ {message}")
         self.cleanup_temp_file()
         self.reset_ui_after_task()
         self.set_file(None)
-        self.log_area.append(f"\n✅ 任务已完成！")
+        # Gracefully ask the thread to quit. It will then emit 'finished'.
+        if self.thread:
+            self.thread.quit()
 
     def update_progress(self, bytes_sent, total_bytes):
         if total_bytes > 0:
@@ -686,45 +703,43 @@ class MainWindow(QMainWindow):
 
     def on_task_error(self, message: str):
         self.log_area.append(f"\n❌ {message}")
+        
+        self.is_retrying = False
         if "用户取消" not in message:
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Critical)
             msg_box.setWindowTitle("错误")
             msg_box.setText("上传或转录失败。")
             msg_box.setInformativeText(message)
-            retry_button = QPushButton("重试")
-            close_button = QPushButton("关闭")
-            msg_box.addButton(retry_button, QMessageBox.AcceptRole)
-            msg_box.addButton(close_button, QMessageBox.RejectRole)
+            retry_button = msg_box.addButton("重试", QMessageBox.AcceptRole)
+            close_button = msg_box.addButton("关闭", QMessageBox.RejectRole)
             
             msg_box.exec()
 
             if msg_box.clickedButton() == retry_button:
-                self.log_area.append("\n... 用户选择重试 ...")
-                self._execute_transcription_task(self.file_to_process_on_retry, self.selected_file_path)
-            else:
-                self.cleanup_temp_file()
-                self.reset_ui_after_task()
-                self.reset_file_label()
-        else:
-            self.cleanup_temp_file()
-            self.reset_ui_after_task()
-            self.reset_file_label()
+                self.is_retrying = True
+
+        # Always quit the thread. The cleanup function will decide what to do next.
+        if self.thread:
+            self.thread.quit()
 
     def cancel_process(self):
         self.log_area.append("\n正在请求取消任务...")
-        if self.worker and self.thread and self.thread.isRunning():
+        # The worker object is the source of truth for a running task.
+        if self.worker:
             self.worker.request_cancellation()
         else:
+            # If there's no worker, there's no active task to cancel.
+            # We can clean up any stray temp files just in case.
             self.cleanup_temp_file()
+            self.log_area.append("没有正在运行的任务。")
 
     def reset_ui_after_task(self):
+        """Resets the UI to its initial state, without checking thread status."""
         self.set_ui_enabled(True)
         self.progress_bar.setVisible(False)
         self.progress_label.setVisible(False)
-        if self.thread and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait()
+        self.reset_file_label()
         
     def set_ui_enabled(self, enabled: bool):
         self.start_button.setVisible(enabled)
@@ -745,8 +760,35 @@ class MainWindow(QMainWindow):
             file_path = event.mimeData().urls()[0].toLocalFile()
             self.set_file(file_path)
 
+    def _on_thread_cleanup(self):
+        """
+        This is the dedicated, safe slot for cleaning up after the thread has finished.
+        It now also handles the retry logic.
+        """
+        self.log_area.append("线程已结束，正在清理资源...")
+        
+        if self.worker:
+            self.worker.deleteLater()
+            self.worker = None
+        
+        if self.thread:
+            self.thread.deleteLater()
+            self.thread = None
+            
+        if self.is_retrying:
+            self.is_retrying = False
+            self.log_area.append("\n... 用户选择重试 ...")
+            self._execute_transcription_task(self.file_to_process_on_retry, self.selected_file_path)
+        else:
+            self.cleanup_temp_file()
+            self.reset_ui_after_task()
+
     def closeEvent(self, event):
         self.cancel_process()
+        # Wait for our custom thread to finish if it's running
+        if self.thread and self.thread.isRunning():
+            self.thread.wait(3000) # Wait up to 3 seconds
+        # Wait for the global pool (for uploader)
         QThreadPool.globalInstance().waitForDone(-1)
         self.cleanup_temp_file()
         event.accept()
