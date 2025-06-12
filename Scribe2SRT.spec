@@ -1,5 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+
+kwargs = {}
+if sys.platform == 'win32':
+    kwargs['win_no_prefer_redirects'] = False
+    kwargs['win_private_assemblies'] = False
+
 a = Analysis(
     ['app.py'],
     pathex=[],
@@ -29,10 +36,9 @@ a = Analysis(
         'pydoc',
         'pdb'
     ],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
     cipher=None,
     noarchive=False,
+    **kwargs
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=cipher)
 
