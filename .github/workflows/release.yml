@@ -47,14 +47,6 @@ jobs:
           echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
           echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
 
-<<<<<<< HEAD
-      - name: Build with PyInstaller
-        run: |
-          pyinstaller --noconfirm --onefile --windowed \
-          --name "Scribe2SRT" \
-          --add-data "settings.json:." \
-          app.py
-=======
       - name: Build with PyInstaller
         shell: bash
         run: |
@@ -62,7 +54,6 @@ jobs:
             --name "${{ env.EXECUTABLE_NAME }}" \
             --add-data "settings.json:." \
             app.py
->>>>>>> parent of 8e7d7ec (use .spec add upx to zip app size)
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
