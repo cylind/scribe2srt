@@ -2,6 +2,8 @@
 
 import sys
 
+cipher = None
+
 kwargs = {}
 if sys.platform == 'win32':
     kwargs['win_no_prefer_redirects'] = False
