@@ -53,7 +53,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=True if sys.platform != 'darwin' else False,
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,

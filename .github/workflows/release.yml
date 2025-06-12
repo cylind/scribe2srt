@@ -53,13 +53,8 @@ jobs:
         with:
           version: latest
 
-      - name: Build with PyInstaller (Windows/Linux)
-        if: matrix.os != 'macos-latest'
+      - name: Build with PyInstaller using spec
         run: pyinstaller Scribe2SRT.spec
-
-      - name: Build with PyInstaller (macOS)
-        if: matrix.os == 'macos-latest'
-        run: pyinstaller Scribe2SRT.spec --noupx
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
