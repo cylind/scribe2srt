@@ -14,9 +14,29 @@ from PySide6.QtCore import QObject, Signal, QRunnable
 ELEVENLABS_STT_API_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 ELEVENLABS_STT_PARAMS = {"allow_unauthenticated": "1"}
 DEFAULT_STT_MODEL_ID = "scribe_v1"
-DEFAULT_USER_AGENTS = [
+# --- Header Configuration ---
+USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 ]
+ACCEPT_LANGUAGES = [
+    "zh-CN,zh;q=0.9,en;q=0.8", "en-US,en;q=0.9,es;q=0.8", "en-GB,en;q=0.9",
+    "ja-JP,ja;q=0.9,en;q=0.8", "ko-KR,ko;q=0.9,en;q=0.8", "de-DE,de;q=0.9,en;q=0.8",
+    "fr-FR,fr;q=0.9,en;q=0.8", "en-US,en;q=0.5",
+]
+BASE_HEADERS = {
+    "accept": "*/*",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "origin": "https://elevenlabs.io",
+    "referer": "https://elevenlabs.io/",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+}
 
 class UploaderSignals(QObject):
     """Defines the signals available from a running Uploader thread."""
@@ -124,9 +144,9 @@ class ElevenLabsSTTClient:
         if language_code and language_code.lower() != "auto":
             payload["language_code"] = language_code
 
-        headers = {
-            "accept": "application/json",
-            "user-agent": random.choice(DEFAULT_USER_AGENTS),
-        }
+        # Assemble headers using the simple and effective final approach
+        headers = BASE_HEADERS.copy()
+        headers["user-agent"] = random.choice(USER_AGENTS)
+        headers["accept-language"] = random.choice(ACCEPT_LANGUAGES)
         
         return Uploader(file_path, payload, headers)
