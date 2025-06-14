@@ -557,11 +557,16 @@ class MainWindow(QMainWindow):
             self.reset_ui_after_task()
 
     def extract_audio(self, video_path):
-        """Extracts audio from a video file using ffmpeg."""
-        self.log_area.append(f"检测到视频文件，正在使用 FFmpeg 提取音频...")
+        """
+        Extracts audio from a video file using ffmpeg by copying the audio stream
+        into a new file with the same container format.
+        """
+        self.log_area.append(f"检测到视频文件，正在使用 FFmpeg 无损提取音频流...")
         self.progress_label.setText("正在提取音频...")
         try:
-            output_filename = f"temp_audio_{os.path.basename(video_path)}.mp3"
+            # --- 修改点: 使用原始视频的扩展名作为临时文件的扩展名 ---
+            base_name, extension = os.path.splitext(os.path.basename(video_path))
+            output_filename = f"temp_audio_{base_name}{extension}"
             output_path = os.path.join(os.path.dirname(video_path), output_filename)
             
             startupinfo = None
@@ -569,11 +574,12 @@ class MainWindow(QMainWindow):
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+            # 命令保持使用 -c:a copy，确保无损和快速
             command = [
                 "ffmpeg", "-i", video_path,
-                "-vn",
-                "-b:a", "192k",
-                "-y",
+                "-vn",           # 移除视频流
+                "-c:a", "copy",  # 直接复制音频流，不重新编码
+                "-y",            # 覆盖已存在的文件
                 output_path
             ]
             
@@ -587,6 +593,7 @@ class MainWindow(QMainWindow):
             return None
         except subprocess.CalledProcessError as e:
             error_message = "FFmpeg 提取音频失败。\n"
+            error_message += "这可能是因为视频文件已损坏或不包含音频流。\n"
             error_message += f"返回码: {e.returncode}\n"
             try:
                 stderr_output = e.stderr.strip()
