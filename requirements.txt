@@ -1,4 +1,3 @@
 pyside6
 requests
-mutagen
 requests-toolbelt

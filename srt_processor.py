@@ -1,12 +1,9 @@
 import datetime
 from typing import Dict
 
-# --- Subtitle Generation Rules ---
-MAX_LINES_PER_SUBTITLE = 2
-MAX_CPS = 14
-MIN_SUBTITLE_DURATION = 1.0
-MAX_SUBTITLE_DURATION = 7.0
-PAUSE_THRESHOLD = 0.7
+from core.config import (
+    MAX_CPS, MIN_SUBTITLE_DURATION, MAX_SUBTITLE_DURATION, PAUSE_THRESHOLD
+)
 
 def format_srt_time(seconds: float) -> str:
     """Formats seconds into SRT time format HH:MM:SS,ms."""
@@ -21,7 +18,7 @@ class SrtProcessor:
     Processes word-level transcription data into professional SRT subtitles
     using a two-stage approach: semantic grouping and visual formatting.
     """
-    def __init__(self, json_data: Dict, pause_threshold: float = PAUSE_THRESHOLD, max_subtitle_duration: float = MAX_SUBTITLE_DURATION):
+    def __init__(self, json_data: Dict, pause_threshold: float, max_subtitle_duration: float):
         self.srt_content = []
         self.line_number = 1
         self.language = json_data.get("language_code", "eng")[:3] # e.g., "eng"
@@ -171,7 +168,7 @@ class SrtProcessor:
                 
         return "\n".join(self.srt_content)
 
-def create_srt_from_json(json_data: Dict, pause_threshold: float = PAUSE_THRESHOLD, max_subtitle_duration: float = MAX_SUBTITLE_DURATION) -> str:
+def create_srt_from_json(json_data: Dict, pause_threshold: float, max_subtitle_duration: float) -> str:
     """
     Processes transcription JSON data to create a professional SRT file.
     The max_chars_per_line is now determined automatically based on language.

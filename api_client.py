@@ -3,9 +3,11 @@ import random
 from typing import Optional, Any, Dict
 
 import requests
+import json
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
-from mutagen import File as MutagenFile
 from PySide6.QtCore import QObject, Signal, QRunnable
+
+from core.ffmpeg_utils import get_media_info
 
 # ==============================================================================
 #  API Constants and Helpers
@@ -97,28 +99,35 @@ class Uploader(QRunnable):
 
 class ElevenLabsSTTClient:
     """Client to interact with the ElevenLabs Speech-to-Text API."""
-    def __init__(self, signals_forwarder: Optional[QObject] = None):
+    def __init__(self, signals_forwarder: Optional[QObject] = None, ffmpeg_available: bool = False):
         self._signals = signals_forwarder
+        self.ffmpeg_available = ffmpeg_available
 
     def _log(self, message: str):
         if self._signals and hasattr(self._signals, 'log_message'):
             self._signals.log_message.emit(f"{message}")
 
-    def get_audio_info(self, audio_file_path: str) -> None:
+    def log_media_info(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """Logs file size and, if possible, media duration and codec."""
         try:
-            file_size_mb = os.path.getsize(audio_file_path) / (1024 * 1024)
-            duration_seconds = None
-            audio_info = MutagenFile(audio_file_path)
-            if audio_info and hasattr(audio_info, 'info') and hasattr(audio_info.info, 'length'):
-                duration_seconds = float(audio_info.info.length)
-            
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
             log_str = f"  文件大小: {file_size_mb:.2f} MB"
-            if duration_seconds:
-                minutes, seconds = divmod(duration_seconds, 60)
-                log_str += f" | 时长: {int(minutes):02d}分{int(seconds):02d}秒"
+
+            media_info = get_media_info(file_path, self._log)
+            if media_info:
+                duration = media_info.get("duration")
+                codec = media_info.get("codec")
+                if duration:
+                    minutes, seconds = divmod(duration, 60)
+                    log_str += f" | 时长: {int(minutes):02d}分{int(seconds):02d}秒"
+                if codec:
+                    log_str += f" | 音频编码: {codec}"
+            
             self._log(log_str)
+            return media_info
         except Exception as e:
-            self._log(f"  获取音频信息时出错: {e}")
+            self._log(f"  获取文件信息时出错: {e}")
+            return None
 
     def prepare_upload_task(self, file_path: str, language_code: str, tag_audio_events: bool) -> Optional[Uploader]:
         """Prepares an Uploader runnable task without starting it."""
@@ -127,7 +136,7 @@ class ElevenLabsSTTClient:
             return None
 
         self._log(f"准备处理文件: {os.path.basename(file_path)}")
-        self.get_audio_info(file_path)
+        self.log_media_info(file_path)
 
         mime_type = "application/octet-stream"
         ext = os.path.splitext(file_path)[1].lower()

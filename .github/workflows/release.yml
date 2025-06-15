@@ -28,31 +28,29 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Set asset properties (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Set asset properties
+        shell: bash
         run: |
-          echo "EXECUTABLE_NAME=Scribe2SRT.exe" >> $env:GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-windows-x86_64.zip" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      - name: Set asset properties (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-macos-x86_64.tar.gz" >> $GITHUB_ENV
-
-      - name: Set asset properties (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
-          echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "EXECUTABLE_NAME=Scribe2SRT.exe" >> $GITHUB_ENV
+            echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-windows-x86_64.zip" >> $GITHUB_ENV
+            echo "PYINSTALLER_DATA_SEPARATOR=;" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
+            echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-macos-x86_64.tar.gz" >> $GITHUB_ENV
+            echo "PYINSTALLER_DATA_SEPARATOR=:" >> $GITHUB_ENV
+          else
+            echo "EXECUTABLE_NAME=Scribe2SRT" >> $GITHUB_ENV
+            echo "ASSET_NAME=Scribe2SRT-${{ github.ref_name }}-linux-x86_64.tar.gz" >> $GITHUB_ENV
+            echo "PYINSTALLER_DATA_SEPARATOR=:" >> $GITHUB_ENV
+          fi
 
       - name: Build with PyInstaller
         shell: bash
         run: |
           pyinstaller --onefile --windowed --noconsole \
             --name "${{ env.EXECUTABLE_NAME }}" \
-            --add-data "settings.json:." \
+            --add-data "settings.json${{ env.PYINSTALLER_DATA_SEPARATOR }}." \
             app.py
 
       - name: Package release (Windows)
