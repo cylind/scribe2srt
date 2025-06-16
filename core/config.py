@@ -10,10 +10,40 @@ LANGUAGES = {"韩语": "ko", "日语": "ja", "中文": "zh", "英文": "en", "�
 
 # --- 字幕生成规则 ---
 MAX_LINES_PER_SUBTITLE = 2
-MAX_CPS = 14  # 每秒最大字符数
-MIN_SUBTITLE_DURATION = 1.0  # 字幕最短显示时间（秒）
-MAX_SUBTITLE_DURATION = 7.0  # 字幕最长显示时间（秒）
-PAUSE_THRESHOLD = 0.7  # 判定为长停顿的阈值（秒）
+
+# CPS（每秒字符数）- 根据语言动态调整
+CPS_SETTINGS = {
+    "cjk": 11,      # 中文、日文、韩文：9-11字符/秒（取上限）
+    "latin": 15,    # 拉丁语言（英文等）：12-15字符/秒（取上限）
+    "default": 14   # 默认值，向后兼容
+}
+MAX_CPS = CPS_SETTINGS["default"]  # 保持向后兼容
+
+# 时长控制（遵循Netflix等专业标准）
+MIN_SUBTITLE_DURATION = 0.83  # 字幕最短显示时间（秒）- Netflix标准：5/6秒
+MAX_SUBTITLE_DURATION = 7.0   # 字幕最长显示时间（秒）
+MIN_SUBTITLE_GAP = 0.083      # 字幕间最小间隔（秒）- 约2帧@24fps
+PAUSE_THRESHOLD = 0.7         # 判定为长停顿的阈值（秒）
+
+# 每行字符数限制（CPL）
+CPL_SETTINGS = {
+    "cjk": 25,      # 中文、日文、韩文每行字符数（增加到25）
+    "latin": 42,    # 拉丁语言每行字符数
+}
+
+# 用户可配置的字幕设置（GUI中显示）
+DEFAULT_SUBTITLE_SETTINGS = {
+    "min_subtitle_duration": MIN_SUBTITLE_DURATION,
+    "max_subtitle_duration": MAX_SUBTITLE_DURATION,
+    "min_subtitle_gap": MIN_SUBTITLE_GAP,
+    "pause_threshold": PAUSE_THRESHOLD,
+    "cjk_cps": CPS_SETTINGS["cjk"],
+    "latin_cps": CPS_SETTINGS["latin"],
+    "cjk_chars_per_line": CPL_SETTINGS["cjk"],
+    "latin_chars_per_line": CPL_SETTINGS["latin"],
+}
+
+# 其他设置
 DEFAULT_SPLIT_DURATION_MIN = 90  # 长文件自动切分的默认阈值（分钟）
 
 # --- UI 样式表 ---

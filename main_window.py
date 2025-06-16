@@ -20,7 +20,7 @@ from PySide6.QtGui import QIcon
 # --- 从重构后的模块中导入 ---
 from core.config import (
     LANGUAGES, SETTINGS_FILE, PAUSE_THRESHOLD, MAX_SUBTITLE_DURATION,
-    DEFAULT_SPLIT_DURATION_MIN
+    DEFAULT_SPLIT_DURATION_MIN, DEFAULT_SUBTITLE_SETTINGS
 )
 from core.worker import Worker
 from core.ffmpeg_utils import is_ffmpeg_available, extract_audio, get_media_info
@@ -179,11 +179,26 @@ class MainWindow(QMainWindow):
     # --- 设置管理 ---
     def load_settings(self):
         """从文件加载设置，如果文件不存在则使用默认值。"""
+        # 使用新的默认设置结构
         self.settings = {
-            "pause_threshold": PAUSE_THRESHOLD,
-            "max_subtitle_duration": MAX_SUBTITLE_DURATION,
-            "split_duration_min": DEFAULT_SPLIT_DURATION_MIN
+            # 基础设置
+            "pause_threshold": DEFAULT_SUBTITLE_SETTINGS["pause_threshold"],
+            "split_duration_min": DEFAULT_SPLIT_DURATION_MIN,
+
+            # 专业字幕设置
+            "min_subtitle_duration": DEFAULT_SUBTITLE_SETTINGS["min_subtitle_duration"],
+            "max_subtitle_duration": DEFAULT_SUBTITLE_SETTINGS["max_subtitle_duration"],
+            "min_subtitle_gap": DEFAULT_SUBTITLE_SETTINGS["min_subtitle_gap"],
+
+            # CPS设置
+            "cjk_cps": DEFAULT_SUBTITLE_SETTINGS["cjk_cps"],
+            "latin_cps": DEFAULT_SUBTITLE_SETTINGS["latin_cps"],
+
+            # CPL设置
+            "cjk_chars_per_line": DEFAULT_SUBTITLE_SETTINGS["cjk_chars_per_line"],
+            "latin_chars_per_line": DEFAULT_SUBTITLE_SETTINGS["latin_chars_per_line"],
         }
+
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -191,18 +206,14 @@ class MainWindow(QMainWindow):
                     self.settings.update(loaded_settings)
             except (json.JSONDecodeError, TypeError):
                 print(f"警告: 无法解析 {SETTINGS_FILE}。将使用默认设置。")
-        
+
+        # 为了向后兼容，保留这些属性
         self.pause_threshold = self.settings["pause_threshold"]
         self.max_subtitle_duration = self.settings["max_subtitle_duration"]
         self.split_duration_min = self.settings["split_duration_min"]
 
     def save_settings(self):
         """保存当前设置到文件。"""
-        self.settings = {
-            "pause_threshold": self.pause_threshold,
-            "max_subtitle_duration": self.max_subtitle_duration,
-            "split_duration_min": self.split_duration_min
-        }
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.settings, f, indent=4)
 
@@ -211,9 +222,15 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.settings, self)
         if dialog.exec():
             new_settings = dialog.get_settings()
+
+            # 更新所有设置
+            self.settings.update(new_settings)
+
+            # 为了向后兼容，更新这些属性
             self.pause_threshold = new_settings["pause_threshold"]
             self.max_subtitle_duration = new_settings["max_subtitle_duration"]
             self.split_duration_min = new_settings["split_duration_min"]
+
             self.save_settings()
             self.log_area.append("字幕生成设置已更新。")
 
@@ -326,7 +343,8 @@ class MainWindow(QMainWindow):
             srt_data = create_srt_from_json(
                 json_data,
                 pause_threshold=self.pause_threshold,
-                max_subtitle_duration=self.max_subtitle_duration
+                max_subtitle_duration=self.max_subtitle_duration,
+                subtitle_settings=self.settings
             )
             if not srt_data and not json_data.get("words"):
                 raise ValueError("JSON文件可能为空或不包含'words'数据。")
@@ -364,7 +382,8 @@ class MainWindow(QMainWindow):
             max_subtitle_duration=self.max_subtitle_duration,
             split_duration_min=self.split_duration_min,
             ffmpeg_available=self.ffmpeg_available,
-            restore_state=restore_state
+            restore_state=restore_state,
+            subtitle_settings=self.settings
         )
         self.worker.moveToThread(self.thread)
 

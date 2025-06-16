@@ -28,7 +28,7 @@ class Worker(QObject):
     def __init__(self, file_path: str, language_code: str, tag_audio_events: bool,
                  pause_threshold: float, max_subtitle_duration: float, split_duration_min: int,
                  original_file_path: Optional[str] = None, ffmpeg_available: bool = False,
-                 restore_state: Optional[Dict[str, Any]] = None):
+                 restore_state: Optional[Dict[str, Any]] = None, subtitle_settings: Optional[Dict] = None):
         super().__init__()
         self.file_path = file_path
         self.original_file_path = original_file_path if original_file_path else file_path
@@ -39,6 +39,7 @@ class Worker(QObject):
         self.split_duration_sec = split_duration_min * 60
         self.ffmpeg_available = ffmpeg_available
         self.restore_state = restore_state
+        self.subtitle_settings = subtitle_settings
         
         self.uploader = None
         self.client = ElevenLabsSTTClient(signals_forwarder=self, ffmpeg_available=self.ffmpeg_available)
@@ -247,7 +248,8 @@ class Worker(QObject):
         srt_data = create_srt_from_json(
             self.combined_transcript,
             pause_threshold=self.pause_threshold,
-            max_subtitle_duration=self.max_subtitle_duration
+            max_subtitle_duration=self.max_subtitle_duration,
+            subtitle_settings=self.subtitle_settings
         )
         if not srt_data:
             self.error.emit("从合并后的JSON生成SRT失败。")
