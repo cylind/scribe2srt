@@ -76,14 +76,49 @@ class SrtProcessor:
         else:
             return CPS_SETTINGS["latin"]
 
+    def _get_dynamic_cps_limit(self, text: str) -> float:
+        """
+        根据文本长度动态调整CPS限制
+
+        Args:
+            text: 文本内容
+
+        Returns:
+            动态调整后的CPS限制
+        """
+        import re
+        base_cps = self.max_cps
+        text_length = len(re.sub(r'\s+', '', text))  # 去除空白字符的长度
+
+        # 对于极短文本，允许更高的CPS
+        if text_length <= 3:
+            return base_cps * 3.0  # 极短文本（如"啊"）允许3倍CPS
+        elif text_length <= 5:
+            return base_cps * 2.0  # 短文本允许2倍CPS
+        elif text_length <= 10:
+            return base_cps * 1.5  # 中短文本允许1.5倍CPS
+        else:
+            return base_cps
+
     def _preprocess_words(self, json_data: Dict):
         """
         Pre-processes the word list to handle language-specific quirks,
-        such as merging standalone CJK punctuation.
+        such as merging standalone CJK punctuation and filtering out spacing characters.
         """
         raw_words = json_data.get("words", [])
         self.words = []
-        for i, word_info in enumerate(raw_words):
+        for word_info in raw_words:
+            # Skip spacing characters to fix timing issues with Latin text
+            # But preserve the space character in the text of the previous word
+            if word_info.get('type') == 'spacing':
+                # Add space to the previous word if it exists and doesn't already end with space
+                if (self.words and
+                    word_info.get('text', '').strip() == '' and  # Only for actual spaces
+                    self.words[-1].get('type') == 'word' and
+                    not self.words[-1]['text'].endswith(' ')):
+                    self.words[-1]['text'] += ' '
+                continue
+
             is_cjk_punctuation = len(word_info['text']) == 1 and word_info['text'] in "。？！」「、"
             if is_cjk_punctuation and self.words:
                 prev_word = self.words[-1]
@@ -172,21 +207,36 @@ class SrtProcessor:
         original_duration = end_time - start_time
         text_length = len(text)
 
-        # Apply minimum duration constraint
+        # Apply minimum duration constraint with enhanced logic
         if original_duration < self.min_subtitle_duration:
-            end_time = start_time + self.min_subtitle_duration
+            # 优先延长到最小时长
+            proposed_end_time = start_time + self.min_subtitle_duration
+
+            # 检查是否与下一个字幕冲突
+            if next_word_start is not None:
+                max_allowed_end = next_word_start - self.min_subtitle_gap
+                if proposed_end_time > max_allowed_end:
+                    # 如果延长会冲突，标记为需要后续合并处理
+                    end_time = min(proposed_end_time, max_allowed_end)
+                else:
+                    end_time = proposed_end_time
+            else:
+                end_time = proposed_end_time
 
         # Apply maximum duration constraint
         if original_duration > self.max_subtitle_duration:
             end_time = start_time + self.max_subtitle_duration
 
-        # Apply CPS (Characters Per Second) constraint
+        # Apply CPS (Characters Per Second) constraint with dynamic limit
         effective_duration = end_time - start_time
         current_cps = text_length / effective_duration if effective_duration > 0 else 999
 
-        if current_cps > self.max_cps:
+        # Use dynamic CPS limit based on text length
+        dynamic_cps_limit = self._get_dynamic_cps_limit(text)
+
+        if current_cps > dynamic_cps_limit:
             # Extend duration to meet CPS requirement
-            required_duration = text_length / self.max_cps
+            required_duration = text_length / dynamic_cps_limit
             end_time = start_time + required_duration
 
         # Ensure minimum gap with next subtitle
@@ -214,8 +264,18 @@ class SrtProcessor:
         if not text:
             return  # Fix for empty subtitle bug
 
-        start_time = words_in_block[0]['start']
-        end_time = words_in_block[-1]['end']
+        # Find the first and last actual words (not spacing) for timing
+        # This fixes the issue where spacing characters cause incorrect timing
+        word_blocks = [w for w in words_in_block if w.get('type') == 'word']
+
+        if not word_blocks:
+            # If no actual words found, fall back to original logic
+            start_time = words_in_block[0]['start']
+            end_time = words_in_block[-1]['end']
+        else:
+            # Use timing from actual words only, ignoring spacing characters
+            start_time = word_blocks[0]['start']
+            end_time = word_blocks[-1]['end']
 
         # Calculate optimal timing using professional standards
         start_time, end_time = self._calculate_optimal_timing(text, start_time, end_time, next_word_start)
@@ -275,14 +335,129 @@ class SrtProcessor:
             pause_duration = next_word_start - word['end']
             long_pause = pause_duration > self.pause_threshold
 
-        # Check for maximum duration exceeded
+        # Check for maximum duration exceeded - but be more lenient for short phrases
         duration_so_far = word['end'] - current_block[0]['start']
         duration_exceeded = duration_so_far > self.max_subtitle_duration
+
+        # NEW: Check if this is a short phrase that should stay together despite duration
+        if duration_exceeded:
+            current_text = "".join(w['text'] for w in current_block).strip()
+            # If it's a short phrase (like "I'm not doing this"), be more lenient
+            if self._is_short_phrase_that_should_stay_together(current_text, next_word_start, word['end']):
+                duration_exceeded = False
+            # Also check if current block looks like start of a common phrase
+            elif self._looks_like_phrase_beginning(current_text):
+                duration_exceeded = False
 
         # Enhanced text length check with punctuation priority - this is the key improvement
         text_length_check = self._should_break_for_length_enhanced(current_block, word)
 
         return long_pause or duration_exceeded or text_length_check
+
+    def _is_short_phrase_that_should_stay_together(self, current_text: str, next_word_start: float, current_word_end: float) -> bool:
+        """
+        Check if this is a short phrase that should stay together despite duration limits.
+
+        Args:
+            current_text: Current text in the block
+            next_word_start: Start time of next word (if any)
+            current_word_end: End time of current word
+
+        Returns:
+            Boolean indicating if this phrase should stay together
+        """
+        # If the text is very short (like single words or short phrases), be more lenient
+        word_count = len(current_text.split())
+
+        # For very short phrases (1-4 words), be more lenient with duration
+        if word_count <= 4:
+            # Check if there's a reasonable pause after this phrase
+            if next_word_start is not None:
+                pause_after = next_word_start - current_word_end
+                # If there's a natural pause after this short phrase, keep it together
+                if pause_after > 0.3:  # 300ms pause suggests natural break point
+                    return True
+
+            # Also check for common short phrases that should stay together
+            short_phrases = [
+                "I'm not", "I'm not doing", "I'm not doing this",
+                "you're not", "we're not", "they're not",
+                "don't do", "can't do", "won't do",
+                "let's go", "let's not", "let's do"
+            ]
+
+            for phrase in short_phrases:
+                if phrase.lower() in current_text.lower():
+                    return True
+
+        return False
+
+    def _looks_like_phrase_beginning(self, current_text: str) -> bool:
+        """
+        Check if the current text looks like the beginning of a common phrase that should be kept together.
+
+        Args:
+            current_text: Current text in the block
+
+        Returns:
+            Boolean indicating if this looks like a phrase beginning
+        """
+        # Common phrase beginnings that should be kept with following words
+        phrase_beginnings = [
+            "I'm", "you're", "we're", "they're", "he's", "she's", "it's",
+            "don't", "can't", "won't", "shouldn't", "couldn't", "wouldn't",
+            "let's", "that's", "what's", "where's", "when's", "how's",
+            "I'll", "you'll", "we'll", "they'll", "he'll", "she'll"
+        ]
+
+        current_text_lower = current_text.lower().strip()
+
+        # Check if current text is exactly one of these phrase beginnings
+        for beginning in phrase_beginnings:
+            if current_text_lower == beginning.lower():
+                return True
+
+        return False
+
+    def _should_merge_short_subtitles(self, current_subtitle: str, next_subtitle: str,
+                                     current_end: float, next_start: float) -> bool:
+        """
+        判断是否应该合并短字幕
+
+        Args:
+            current_subtitle: 当前字幕文本
+            next_subtitle: 下一个字幕文本
+            current_end: 当前字幕结束时间
+            next_start: 下一个字幕开始时间
+
+        Returns:
+            是否应该合并
+        """
+        import re
+
+        # 计算当前字幕的字符数（去除空白）
+        current_chars = len(re.sub(r'\s+', '', current_subtitle))
+        next_chars = len(re.sub(r'\s+', '', next_subtitle))
+
+        # 计算间隔
+        gap = next_start - current_end
+
+        # 合并条件：
+        # 1. 当前字幕很短（少于5个字符）
+        # 2. 间隔很小（小于500ms）
+        # 3. 合并后总长度不超过50个字符
+        if (current_chars <= 5 and
+            gap < 0.5 and
+            current_chars + next_chars <= 50):
+            return True
+
+        # 或者：两个都很短且间隔很小
+        if (current_chars <= 3 and
+            next_chars <= 3 and
+            gap < 0.3):
+            return True
+
+        return False
 
     def _should_break_before_adding_word(self, word: Dict, current_block: List[Dict]) -> bool:
         """
@@ -696,9 +871,156 @@ class SrtProcessor:
         if current_block:
             self._finalize_and_add_subtitle(current_block)
 
-        return "\n".join(self.srt_content)
+        # Post-processing: optimize generated subtitles
+        optimized_content = self._post_process_subtitles()
 
+        return optimized_content
 
+    def _post_process_subtitles(self) -> str:
+        """
+        后处理优化生成的字幕
+        包括：合并过短字幕、调整时间间隔等
+
+        Returns:
+            优化后的SRT内容
+        """
+        if not self.srt_content:
+            return ""
+
+        # 解析现有字幕
+        subtitles = self._parse_srt_content()
+
+        # 应用优化
+        optimized_subtitles = self._merge_short_subtitles(subtitles)
+        optimized_subtitles = self._ensure_minimum_gaps(optimized_subtitles)
+
+        # 重新生成SRT内容
+        return self._generate_srt_from_subtitles(optimized_subtitles)
+
+    def _parse_srt_content(self) -> List[Dict]:
+        """解析SRT内容为字典列表"""
+        import re
+
+        subtitles = []
+        for entry in self.srt_content:
+            lines = entry.strip().split('\n')
+            if len(lines) >= 3:
+                try:
+                    number = int(lines[0])
+                    time_line = lines[1]
+                    text = '\n'.join(lines[2:])
+
+                    # 解析时间
+                    time_match = re.match(r'(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})', time_line)
+                    if time_match:
+                        start_str, end_str = time_match.groups()
+                        start_time = self._parse_srt_time(start_str)
+                        end_time = self._parse_srt_time(end_str)
+
+                        subtitles.append({
+                            'number': number,
+                            'start': start_time,
+                            'end': end_time,
+                            'text': text,
+                            'duration': end_time - start_time
+                        })
+                except (ValueError, IndexError):
+                    continue
+
+        return subtitles
+
+    def _parse_srt_time(self, time_str: str) -> float:
+        """将SRT时间格式转换为秒数"""
+        try:
+            time_part, ms_part = time_str.split(',')
+            h, m, s = map(int, time_part.split(':'))
+            ms = int(ms_part)
+            return h * 3600 + m * 60 + s + ms / 1000.0
+        except:
+            return 0.0
+
+    def _merge_short_subtitles(self, subtitles: List[Dict]) -> List[Dict]:
+        """合并过短的字幕"""
+        if not subtitles:
+            return subtitles
+
+        merged = []
+        i = 0
+
+        while i < len(subtitles):
+            current = subtitles[i]
+
+            # 检查是否需要与下一个字幕合并
+            if (i + 1 < len(subtitles) and
+                self._should_merge_short_subtitles(
+                    current['text'],
+                    subtitles[i + 1]['text'],
+                    current['end'],
+                    subtitles[i + 1]['start']
+                )):
+
+                # 合并字幕
+                next_subtitle = subtitles[i + 1]
+                merged_subtitle = {
+                    'number': current['number'],
+                    'start': current['start'],
+                    'end': next_subtitle['end'],
+                    'text': current['text'] + ' ' + next_subtitle['text'],
+                    'duration': next_subtitle['end'] - current['start']
+                }
+                merged.append(merged_subtitle)
+                i += 2  # 跳过下一个字幕
+            else:
+                merged.append(current)
+                i += 1
+
+        return merged
+
+    def _ensure_minimum_gaps(self, subtitles: List[Dict]) -> List[Dict]:
+        """确保字幕间的最小间隔"""
+        if len(subtitles) <= 1:
+            return subtitles
+
+        adjusted = []
+        tolerance = 1e-3  # 1毫秒容差
+
+        for i, subtitle in enumerate(subtitles):
+            adjusted_subtitle = subtitle.copy()
+
+            # 检查与下一个字幕的间隔
+            if i + 1 < len(subtitles):
+                next_subtitle = subtitles[i + 1]
+                gap = next_subtitle['start'] - subtitle['end']
+
+                if gap < (self.min_subtitle_gap - tolerance):
+                    # 调整时间以确保最小间隔
+                    adjustment = (self.min_subtitle_gap - gap) / 2
+                    adjusted_subtitle['end'] = max(
+                        adjusted_subtitle['start'] + self.min_subtitle_duration,
+                        adjusted_subtitle['end'] - adjustment
+                    )
+
+            adjusted.append(adjusted_subtitle)
+
+        return adjusted
+
+    def _generate_srt_from_subtitles(self, subtitles: List[Dict]) -> str:
+        """从字幕列表生成SRT内容"""
+        srt_lines = []
+
+        for i, subtitle in enumerate(subtitles, 1):
+            # 重新编号
+            subtitle['number'] = i
+
+            # 格式化时间
+            start_time_str = format_srt_time(subtitle['start'])
+            end_time_str = format_srt_time(subtitle['end'])
+
+            # 生成字幕条目
+            entry = f"{i}\n{start_time_str} --> {end_time_str}\n{subtitle['text']}\n"
+            srt_lines.append(entry)
+
+        return "\n".join(srt_lines)
 
     def _find_optimal_break_point(self, current_block: List[Dict]) -> int:
         """

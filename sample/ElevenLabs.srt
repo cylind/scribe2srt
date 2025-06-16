@@ -1,55 +1,52 @@
 1
-00:00:00,599 --> 00:00:02,556
+00:00:00,599 --> 00:00:02,657
 Create high-quality, multi-character
 
 2
-00:00:02,639 --> 00:00:04,216
+00:00:02,740 --> 00:00:04,540
 audiobooks with ElevenLabs.
 
 3
-00:00:04,299 --> 00:00:07,096
+00:00:04,779 --> 00:00:07,179
 Simply upload your EPUB or PDF.
 
 4
-00:00:07,179 --> 00:00:09,656
+00:00:07,460 --> 00:00:09,656
 Select your voices and begin generating.
 
 5
-00:00:09,739 --> 00:00:11,937
-"My dear fellow,"
+00:00:09,739 --> 00:00:15,797
+"My dear fellow," said Sherlock Holmes as
+we sat on either side of the fire at Baker
 
 6
-00:00:12,020 --> 00:00:16,156
-said Sherlock Holmes as we sat on either
-side of the fire at Baker Street.
+00:00:15,880 --> 00:00:16,156
+Street.
 
 7
-00:00:16,239 --> 00:00:22,296
+00:00:16,239 --> 00:00:22,379
 "Life is infinitely stranger than anything
 which the mind of man could invent."
 
 8
-00:00:22,379 --> 00:00:24,917
-Mrs. Gardiner's caution to Elizabeth was
+00:00:22,899 --> 00:00:23,136
+Mrs.
 
 9
-00:00:25,000 --> 00:00:26,696
-punctually and kindly given.
+00:00:23,219 --> 00:00:27,216
+Gardiner's caution to Elizabeth was
+punctually and kindly given. "You
 
 10
-00:00:26,779 --> 00:00:28,796
-"You are too sensible a girl,
+00:00:27,299 --> 00:00:29,365
+are too sensible a girl, Lizzy,
 
 11
-00:00:28,879 --> 00:00:29,277
-Lizzy,
+00:00:29,739 --> 00:00:33,576
+to fall in love merely because you are
+warned against it." Join thousands
 
 12
-00:00:29,360 --> 00:00:32,557
-to fall in love merely because you are
-warned against it."
-
-13
-00:00:32,640 --> 00:00:38,040
-Join thousands of authors today creating
-high-quality audiobooks with ElevenLabs.
+00:00:33,659 --> 00:00:38,059
+of authors today creating high-quality
+audiobooks with ElevenLabs.

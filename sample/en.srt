@@ -1,22 +1,22 @@
 1
-00:00:00,079 --> 00:00:01,796
+00:00:00,079 --> 00:00:01,936
 In the ancient land of Eldoria,
 
 2
-00:00:01,879 --> 00:00:06,236
+00:00:02,019 --> 00:00:06,236
 where the skies were painted with shades
 of mystic hues and the forests whispered
 
 3
-00:00:06,319 --> 00:00:07,176
+00:00:06,319 --> 00:00:07,319
 secrets of old,
 
 4
-00:00:07,259 --> 00:00:10,196
+00:00:07,779 --> 00:00:10,312
 there existed a dragon named Zephyros.
 
 5
-00:00:10,279 --> 00:00:15,816
+00:00:11,079 --> 00:00:15,816
 Unlike the fearsome tales of dragons that
 plagued human hearts with terror, Zephyros
 
