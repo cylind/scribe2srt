@@ -27,6 +27,8 @@ from core.ffmpeg_utils import is_ffmpeg_available, extract_audio, get_media_info
 from srt_processor import create_srt_from_json
 from ui.widgets import CustomCheckBox
 from ui.settings_dialog import SettingsDialog
+from ui.async_settings_dialog import AsyncSettingsDialog
+from ui.segmented_progress_bar import SegmentedProgressBar
 
 
 # --- Codec to Container Mapping ---
@@ -100,7 +102,8 @@ class MainWindow(QMainWindow):
         
         self.audio_events_checkbox = CustomCheckBox("识别声音事件")
         self.audio_events_checkbox.setChecked(False)
-        
+
+        self.async_settings_button = QPushButton("并发处理设置")
         self.settings_button = QPushButton("字幕设置")
 
         options_layout.addWidget(self.lang_label)
@@ -108,6 +111,7 @@ class MainWindow(QMainWindow):
         options_layout.addSpacing(20)
         options_layout.addWidget(self.audio_events_checkbox)
         options_layout.addStretch(1)
+        options_layout.addWidget(self.async_settings_button)
         options_layout.addWidget(self.settings_button)
         main_layout.addLayout(options_layout)
         
@@ -115,13 +119,13 @@ class MainWindow(QMainWindow):
         self.progress_label = QLabel("")
         self.progress_label.setVisible(False)
         self.progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setTextVisible(False)
-        
+
+        # 使用新的分段进度条
+        self.segmented_progress_bar = SegmentedProgressBar()
+        self.segmented_progress_bar.setVisible(False)
+
         main_layout.addWidget(self.progress_label)
-        main_layout.addWidget(self.progress_bar)
+        main_layout.addWidget(self.segmented_progress_bar)
         
         # --- 操作按钮 ---
         action_layout = QHBoxLayout()
@@ -149,6 +153,7 @@ class MainWindow(QMainWindow):
         self.select_button.clicked.connect(self.select_file)
         self.start_button.clicked.connect(self.start_process)
         self.cancel_button.clicked.connect(self.cancel_process)
+        self.async_settings_button.clicked.connect(self.open_async_settings_dialog)
         self.settings_button.clicked.connect(self.open_settings_dialog)
 
     def _apply_dark_mode_title_bar(self):
@@ -197,6 +202,12 @@ class MainWindow(QMainWindow):
             # CPL设置
             "cjk_chars_per_line": DEFAULT_SUBTITLE_SETTINGS["cjk_chars_per_line"],
             "latin_chars_per_line": DEFAULT_SUBTITLE_SETTINGS["latin_chars_per_line"],
+
+            # 异步处理设置
+            "enable_async_processing": True,
+            "max_concurrent_chunks": 3,
+            "max_retries": 3,
+            "api_rate_limit_per_minute": 30,
         }
 
         if os.path.exists(SETTINGS_FILE):
@@ -234,6 +245,21 @@ class MainWindow(QMainWindow):
             self.save_settings()
             self.log_area.append("字幕生成设置已更新。")
 
+    def open_async_settings_dialog(self):
+        """打开并发处理设置对话框并处理结果。"""
+        dialog = AsyncSettingsDialog(self.settings, self)
+        if dialog.exec():
+            new_settings = dialog.get_settings()
+
+            # 更新异步处理设置
+            self.settings.update(new_settings)
+
+            # 为了向后兼容，更新这些属性
+            self.split_duration_min = new_settings["split_duration_min"]
+
+            self.save_settings()
+            self.log_area.append("并发处理设置已更新。")
+
     # --- 文件处理与UI状态 ---
     def set_file(self, file_path: Optional[str]):
         """设置当前要处理的文件并更新UI。"""
@@ -268,13 +294,14 @@ class MainWindow(QMainWindow):
         self.select_button.setEnabled(enabled)
         self.lang_combo.setEnabled(enabled)
         self.audio_events_checkbox.setEnabled(enabled)
+        self.async_settings_button.setEnabled(enabled)
         self.settings_button.setEnabled(enabled)
         self.setAcceptDrops(enabled)
 
     def reset_ui_after_task(self):
         """任务完成后重置UI到初始状态。"""
         self.set_ui_enabled(True)
-        self.progress_bar.setVisible(False)
+        self.segmented_progress_bar.setVisible(False)
         self.progress_label.setVisible(False)
         self.set_file(None)
 
@@ -291,8 +318,8 @@ class MainWindow(QMainWindow):
             return
 
         self.set_ui_enabled(False)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
+        self.segmented_progress_bar.setVisible(True)
+        self.segmented_progress_bar.set_single_file_mode(self.selected_file_path)
         self.progress_label.setText("准备中...")
         self.progress_label.setVisible(True)
         
@@ -383,7 +410,12 @@ class MainWindow(QMainWindow):
             split_duration_min=self.split_duration_min,
             ffmpeg_available=self.ffmpeg_available,
             restore_state=restore_state,
-            subtitle_settings=self.settings
+            subtitle_settings=self.settings,
+            # 传递异步处理设置
+            enable_async_processing=self.settings.get("enable_async_processing", True),
+            max_concurrent_chunks=self.settings.get("max_concurrent_chunks", 3),
+            max_retries=self.settings.get("max_retries", 3),
+            api_rate_limit_per_minute=self.settings.get("api_rate_limit_per_minute", 30)
         )
         self.worker.moveToThread(self.thread)
 
@@ -444,30 +476,43 @@ class MainWindow(QMainWindow):
 
     def update_progress(self, bytes_sent, total_bytes):
         """更新上传进度条。"""
-        if total_bytes > 0:
-            percentage = int((bytes_sent / total_bytes) * 100)
-            self.progress_bar.setValue(percentage)
-            
+        if self.worker and self.worker.total_chunks > 1:
+            # 多片段模式：更新对应片段的进度
+            chunk_index = getattr(self.worker, 'current_chunk_index', 0)
+            self.segmented_progress_bar.update_segment_progress(chunk_index, bytes_sent, total_bytes)
+
+            # 更新进度标签
             sent_mb = bytes_sent / (1024 * 1024)
             total_mb = total_bytes / (1024 * 1024)
-            
-            if self.worker and self.worker.total_chunks > 1:
-                chunk_text = f"片段 {self.worker.current_chunk_index + 1}/{self.worker.total_chunks}"
-                self.progress_label.setText(f"{chunk_text} - 上传中: {sent_mb:.2f}MB / {total_mb:.2f}MB")
-            else:
-                self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB / {total_mb:.2f} MB")
+            chunk_text = f"片段 {chunk_index + 1}/{self.worker.total_chunks}"
+            self.progress_label.setText(f"{chunk_text} - 上传中: {sent_mb:.2f}MB / {total_mb:.2f}MB")
+        else:
+            # 单文件模式：使用兼容的进度更新
+            self.segmented_progress_bar.update_single_progress(bytes_sent, total_bytes)
 
+            sent_mb = bytes_sent / (1024 * 1024)
+            if total_bytes > 0:
+                total_mb = total_bytes / (1024 * 1024)
+                self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB / {total_mb:.2f} MB")
+            else:
+                self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB")
+
+        # 检查上传完成
+        if total_bytes > 0:
+            percentage = int((bytes_sent / total_bytes) * 100)
             if percentage == 100 and not self.upload_complete_logged:
                 self.log_area.append("上传成功！等待服务器转录...")
                 self.upload_complete_logged = True
-        else:
-            sent_mb = bytes_sent / (1024 * 1024)
-            self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB")
 
     def update_chunk_progress(self, message: str):
         """更新多片段处理时的进度标签。"""
         self.progress_label.setText(message)
-        self.progress_bar.setValue(0)
+
+        # 如果是异步处理开始，设置分段进度条
+        if self.worker and hasattr(self.worker, 'temp_chunks') and len(self.worker.temp_chunks) > 1:
+            self.segmented_progress_bar.set_segments(self.worker.temp_chunks)
+        else:
+            self.segmented_progress_bar.reset()
 
     def _handle_task_completion(self):
         """

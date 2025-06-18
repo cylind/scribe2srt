@@ -1,5 +1,15 @@
 {
     "pause_threshold": 0.7,
+    "split_duration_min": 60,
+    "min_subtitle_duration": 0.83,
     "max_subtitle_duration": 7.0,
-    "split_duration_min": 120
+    "min_subtitle_gap": 0.083,
+    "cjk_cps": 11,
+    "latin_cps": 15,
+    "cjk_chars_per_line": 25,
+    "latin_chars_per_line": 42,
+    "enable_async_processing": true,
+    "max_concurrent_chunks": 3,
+    "max_retries": 3,
+    "api_rate_limit_per_minute": 30
 }

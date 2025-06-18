@@ -37,15 +37,7 @@ class SettingsDialog(QDialog):
         self.pause_threshold_spin.setSuffix(" 秒")
         self.pause_threshold_spin.setValue(current_settings.get("pause_threshold", DEFAULT_SUBTITLE_SETTINGS["pause_threshold"]))
 
-        # 长文件切分阈值
-        self.split_duration_spin = QSpinBox()
-        self.split_duration_spin.setRange(10, 240)
-        self.split_duration_spin.setSingleStep(10)
-        self.split_duration_spin.setSuffix(" 分钟")
-        self.split_duration_spin.setValue(current_settings.get("split_duration_min", DEFAULT_SPLIT_DURATION_MIN))
-
         basic_layout.addRow("长停顿阈值:", self.pause_threshold_spin)
-        basic_layout.addRow("长文件自动切分阈值:", self.split_duration_spin)
         basic_group.setLayout(basic_layout)
 
         # === 专业字幕设置组 ===
@@ -148,7 +140,6 @@ class SettingsDialog(QDialog):
         """将设置重置为程序默认值。"""
         # 基础设置
         self.pause_threshold_spin.setValue(DEFAULT_SUBTITLE_SETTINGS["pause_threshold"])
-        self.split_duration_spin.setValue(DEFAULT_SPLIT_DURATION_MIN)
 
         # 专业字幕设置
         self.min_duration_spin.setValue(DEFAULT_SUBTITLE_SETTINGS["min_subtitle_duration"])
@@ -168,7 +159,6 @@ class SettingsDialog(QDialog):
         return {
             # 基础设置
             "pause_threshold": self.pause_threshold_spin.value(),
-            "split_duration_min": self.split_duration_spin.value(),
 
             # 专业字幕设置
             "min_subtitle_duration": self.min_duration_spin.value(),
