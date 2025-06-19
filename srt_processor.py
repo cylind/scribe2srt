@@ -119,10 +119,10 @@ class SrtProcessor:
                     self.words[-1]['text'] += ' '
                 continue
 
-            is_cjk_punctuation = len(word_info['text']) == 1 and word_info['text'] in "。？！」「、"
+            is_cjk_punctuation = len(word_info['text']) == 1 and word_info['text'] in "。？！」「、・，"
             if is_cjk_punctuation and self.words:
                 prev_word = self.words[-1]
-                if prev_word.get("type") == "word" and prev_word['text'] and prev_word['text'][-1] not in "。？！」「、":
+                if prev_word.get("type") == "word" and prev_word['text'] and prev_word['text'][-1] not in "。？！」「、・，":
                     prev_word['text'] += word_info['text']
                     prev_word['end'] = word_info['end']
                     continue
@@ -132,10 +132,12 @@ class SrtProcessor:
         """Get appropriate split characters based on language."""
         if self.is_cjk:
             # CJK languages: prioritize punctuation marks
-            return "。？！、，；：""''（）【】《》〈〉「」『』 "
+            # Optimized based on actual usage analysis - removed rarely used punctuation
+            return "。？！、，；：""''（）《》「」 "
         else:
             # Latin languages: prioritize spaces and common punctuation
-            return " .,;:!?()[]{}\"'-"
+            # Optimized based on actual usage analysis - removed rarely used punctuation
+            return " .,;:!?()\"'-"
 
     def _find_best_split_position(self, text: str, max_length: int) -> int:
         """
@@ -335,89 +337,14 @@ class SrtProcessor:
             pause_duration = next_word_start - word['end']
             long_pause = pause_duration > self.pause_threshold
 
-        # Check for maximum duration exceeded - but be more lenient for short phrases
+        # Check for maximum duration exceeded
         duration_so_far = word['end'] - current_block[0]['start']
         duration_exceeded = duration_so_far > self.max_subtitle_duration
-
-        # NEW: Check if this is a short phrase that should stay together despite duration
-        if duration_exceeded:
-            current_text = "".join(w['text'] for w in current_block).strip()
-            # If it's a short phrase (like "I'm not doing this"), be more lenient
-            if self._is_short_phrase_that_should_stay_together(current_text, next_word_start, word['end']):
-                duration_exceeded = False
-            # Also check if current block looks like start of a common phrase
-            elif self._looks_like_phrase_beginning(current_text):
-                duration_exceeded = False
 
         # Enhanced text length check with punctuation priority - this is the key improvement
         text_length_check = self._should_break_for_length_enhanced(current_block, word)
 
         return long_pause or duration_exceeded or text_length_check
-
-    def _is_short_phrase_that_should_stay_together(self, current_text: str, next_word_start: float, current_word_end: float) -> bool:
-        """
-        Check if this is a short phrase that should stay together despite duration limits.
-
-        Args:
-            current_text: Current text in the block
-            next_word_start: Start time of next word (if any)
-            current_word_end: End time of current word
-
-        Returns:
-            Boolean indicating if this phrase should stay together
-        """
-        # If the text is very short (like single words or short phrases), be more lenient
-        word_count = len(current_text.split())
-
-        # For very short phrases (1-4 words), be more lenient with duration
-        if word_count <= 4:
-            # Check if there's a reasonable pause after this phrase
-            if next_word_start is not None:
-                pause_after = next_word_start - current_word_end
-                # If there's a natural pause after this short phrase, keep it together
-                if pause_after > 0.3:  # 300ms pause suggests natural break point
-                    return True
-
-            # Also check for common short phrases that should stay together
-            short_phrases = [
-                "I'm not", "I'm not doing", "I'm not doing this",
-                "you're not", "we're not", "they're not",
-                "don't do", "can't do", "won't do",
-                "let's go", "let's not", "let's do"
-            ]
-
-            for phrase in short_phrases:
-                if phrase.lower() in current_text.lower():
-                    return True
-
-        return False
-
-    def _looks_like_phrase_beginning(self, current_text: str) -> bool:
-        """
-        Check if the current text looks like the beginning of a common phrase that should be kept together.
-
-        Args:
-            current_text: Current text in the block
-
-        Returns:
-            Boolean indicating if this looks like a phrase beginning
-        """
-        # Common phrase beginnings that should be kept with following words
-        phrase_beginnings = [
-            "I'm", "you're", "we're", "they're", "he's", "she's", "it's",
-            "don't", "can't", "won't", "shouldn't", "couldn't", "wouldn't",
-            "let's", "that's", "what's", "where's", "when's", "how's",
-            "I'll", "you'll", "we'll", "they'll", "he'll", "she'll"
-        ]
-
-        current_text_lower = current_text.lower().strip()
-
-        # Check if current text is exactly one of these phrase beginnings
-        for beginning in phrase_beginnings:
-            if current_text_lower == beginning.lower():
-                return True
-
-        return False
 
     def _should_merge_short_subtitles(self, current_subtitle: str, next_subtitle: str,
                                      current_end: float, next_start: float) -> bool:
@@ -462,7 +389,7 @@ class SrtProcessor:
     def _should_break_before_adding_word(self, word: Dict, current_block: List[Dict]) -> bool:
         """
         Determine if we should break BEFORE adding this word to the current block.
-        Enhanced to be more aggressive about finding punctuation breaks.
+        NEW APPROACH: Prioritize punctuation breaks over length constraints.
 
         Args:
             word: The word we're considering adding
@@ -478,27 +405,203 @@ class SrtProcessor:
         current_text = "".join(w['text'] for w in current_block).strip()
         text_with_new_word = current_text + word['text']
 
-        # Very aggressive length checking - start looking for breaks even earlier
-        if len(text_with_new_word) <= self.max_chars_per_line * 0.95:  # Further reduced to 0.95x
+        # STEP 1: Check for recent punctuation breaks FIRST (before length checks)
+        # This ensures we prioritize semantic breaks over visual constraints
+        recent_punct_break = self._find_recent_punctuation_break_enhanced(current_block)
+        if recent_punct_break >= 0:
+            # Found a good punctuation break, check if we should use it
+            text_before_punct = "".join(w['text'] for w in current_block[:recent_punct_break + 1]).strip()
+
+            # Use punctuation break if:
+            # 1. We have reasonable content before the break
+            # 2. Adding the new word would exceed comfortable length OR
+            # 3. We have a high-priority punctuation mark (sentence endings)
+            min_chars_before = 6 if not self.is_cjk else 8  # More aggressive for Latin
+            if len(text_before_punct) >= min_chars_before:
+                high_priority_punct = self._has_high_priority_punctuation(current_block[recent_punct_break])
+                # More aggressive threshold for Latin languages to control CPS
+                comfort_threshold = 0.6 if not self.is_cjk else 0.8  # Even more aggressive for Latin
+                approaching_limit = len(text_with_new_word) > self.max_chars_per_line * comfort_threshold
+
+                if high_priority_punct or approaching_limit:
+                    return True
+
+        # STEP 2: Only check length constraints if no good punctuation break found
+        # Be more aggressive for Latin languages to meet CPS requirements
+        overflow_tolerance = 1.05 if not self.is_cjk else 1.1  # 5% for Latin, 10% for CJK
+        if len(text_with_new_word) <= self.max_chars_per_line * overflow_tolerance:
             return False
 
-        # We're approaching length limits, aggressively look for punctuation breaks
-        punctuation_break_index = self._find_best_punctuation_break_aggressive(current_block)
+        # STEP 3: We're exceeding comfortable limits, look for any punctuation break
+        any_punct_break = self._find_any_punctuation_break(current_block)
 
-        if punctuation_break_index >= 0:
+        if any_punct_break >= 0:
             # Found punctuation, check if breaking there creates reasonable segments
-            text_before_punct = "".join(w['text'] for w in current_block[:punctuation_break_index+1]).strip()
-            text_after_punct = "".join(w['text'] for w in current_block[punctuation_break_index+1:]).strip() + word['text']
+            text_before_punct = "".join(w['text'] for w in current_block[:any_punct_break+1]).strip()
+            text_after_punct = "".join(w['text'] for w in current_block[any_punct_break+1:]).strip() + word['text']
 
-            # Even more lenient requirements for punctuation breaks
-            if (len(text_before_punct) >= 4 and  # Further reduced from 6
-                len(text_after_punct) >= 2 and  # Further reduced from 3
+            # Language-specific requirements for punctuation breaks
+            min_before = 3 if not self.is_cjk else 4  # More aggressive for Latin
+            min_after = 2 if not self.is_cjk else 2   # Same for both
+
+            if (len(text_before_punct) >= min_before and
+                len(text_after_punct) >= min_after and
                 not self._text_exceeds_two_lines(text_before_punct) and
                 not self._text_exceeds_two_lines(text_after_punct)):
                 return True
 
-        # If no good punctuation break and text would exceed two lines, we must break
+        # STEP 4: Smart fallback strategy based on punctuation availability
+        return self._smart_fallback_break_decision(current_block, word, text_with_new_word, any_punct_break >= 0)
+
+    def _smart_fallback_break_decision(self, current_block: List[Dict], word: Dict, text_with_new_word: str, has_punctuation: bool) -> bool:
+        """
+        Smart fallback decision that balances CPS control with semantic integrity.
+
+        Args:
+            current_block: Current block of words
+            word: Word being added
+            text_with_new_word: Text including the new word
+            has_punctuation: Whether any punctuation was found in the block
+
+        Returns:
+            Boolean indicating whether to break
+        """
+        if self.is_cjk:
+            # For CJK, prioritize semantic integrity - only break if exceeding two lines
+            return self._text_exceeds_two_lines(text_with_new_word)
+
+        # For Latin languages, we need more aggressive CPS control
+        current_length = len(text_with_new_word)
+        max_length = self.max_chars_per_line
+
+        if has_punctuation:
+            # If we found punctuation but couldn't use it, be more lenient
+            # Allow up to 95% of max length before forcing break
+            threshold = max_length * 0.95
+        else:
+            # No punctuation found - we must be more aggressive to control CPS
+            # Use a sliding scale based on how close we are to CPS limits
+
+            # Estimate CPS based on average word duration
+            avg_duration = self._estimate_average_duration(current_block + [word])
+            if avg_duration > 0:
+                estimated_cps = current_length / avg_duration
+                cps_limit = 15  # Latin CPS limit
+
+                if estimated_cps > cps_limit * 0.9:  # 90% of CPS limit
+                    # Very close to CPS limit, break at 70% of max length
+                    threshold = max_length * 0.7
+                elif estimated_cps > cps_limit * 0.8:  # 80% of CPS limit
+                    # Approaching CPS limit, break at 80% of max length
+                    threshold = max_length * 0.8
+                else:
+                    # Still safe, break at 90% of max length
+                    threshold = max_length * 0.9
+            else:
+                # Can't estimate CPS, use conservative 80% threshold
+                threshold = max_length * 0.8
+
+        # Check if we exceed the calculated threshold
+        if current_length > threshold:
+            return True
+
+        # Final fallback: break if text would exceed two lines
         return self._text_exceeds_two_lines(text_with_new_word)
+
+    def _estimate_average_duration(self, words: List[Dict]) -> float:
+        """Estimate average duration per character for a list of words."""
+        if not words or len(words) < 2:
+            return 0
+
+        total_chars = sum(len(w.get('text', '')) for w in words)
+        if total_chars == 0:
+            return 0
+
+        # Calculate total duration
+        start_time = words[0].get('start', 0)
+        end_time = words[-1].get('end', words[-1].get('start', 0))
+        total_duration = end_time - start_time
+
+        if total_duration <= 0:
+            return 0
+
+        return total_duration
+
+    def _calculate_smart_punctuation_threshold(self, current_block: List[Dict]) -> float:
+        """
+        Calculate smart threshold for punctuation-based breaking.
+
+        Args:
+            current_block: Current block of words
+
+        Returns:
+            Threshold ratio (0.0 to 1.0)
+        """
+        if self.is_cjk:
+            return 0.6  # Conservative for CJK to maintain semantic integrity
+
+        # For Latin languages, calculate based on estimated CPS
+        avg_duration = self._estimate_average_duration(current_block)
+        if avg_duration > 0:
+            current_text = "".join(w['text'] for w in current_block).strip()
+            estimated_cps = len(current_text) / avg_duration
+            cps_limit = 15  # Latin CPS limit
+
+            if estimated_cps > cps_limit * 0.8:  # 80% of CPS limit
+                return 0.4  # Very aggressive - break at 40%
+            elif estimated_cps > cps_limit * 0.6:  # 60% of CPS limit
+                return 0.5  # Aggressive - break at 50%
+            else:
+                return 0.6  # Moderate - break at 60%
+
+        # Default fallback
+        return 0.5  # Moderate threshold for Latin
+
+    def _find_recent_punctuation_break_enhanced(self, current_block: List[Dict]) -> int:
+        """
+        Find the most recent punctuation break in the current block.
+        Enhanced to look for punctuation within a reasonable recent range.
+        """
+        if len(current_block) < 1:
+            return -1
+
+        # For Latin languages, be more aggressive - search the entire block
+        # For CJK languages, focus on recent 60%
+        if self.is_cjk:
+            start_search = max(0, int(len(current_block) * 0.4))
+        else:
+            start_search = 0  # Search entire block for Latin languages
+
+        # Search backwards from the end for punctuation
+        for i in range(len(current_block) - 1, start_search - 1, -1):
+            word_info = current_block[i]
+            if self._is_punctuation_word(word_info):
+                return i
+
+        return -1
+
+    def _has_high_priority_punctuation(self, word_info: Dict) -> bool:
+        """Check if word contains high-priority punctuation (sentence endings)."""
+        text = word_info.get('text', '')
+        if self.is_cjk:
+            return any(p in text for p in ["。", "！", "？"])
+        else:
+            return any(p in text for p in [".", "!", "?"])
+
+    def _find_any_punctuation_break(self, current_block: List[Dict]) -> int:
+        """Find any punctuation break in the current block, preferring later positions."""
+        # Search backwards to prefer later punctuation marks
+        for i in range(len(current_block) - 1, -1, -1):
+            word_info = current_block[i]
+            if self._is_punctuation_word(word_info):
+                return i
+        return -1
+
+    def _is_punctuation_word(self, word_info: Dict) -> bool:
+        """Check if a word contains punctuation marks."""
+        text = word_info.get('text', '')
+        split_chars = self._get_split_characters()
+        return any(char in text for char in split_chars.strip())
 
     def _find_best_punctuation_break_aggressive(self, current_block: List[Dict]) -> int:
         """
@@ -859,6 +962,27 @@ class SrtProcessor:
                 # Add word to current block
                 current_block.append(word)
 
+            # Check if we should break immediately after adding a punctuation word
+            # This is crucial for proper punctuation-based breaking
+            if self._is_punctuation_word(word) and not is_last_word:
+                # We just added a punctuation word, check if we should break here
+                current_text = "".join(w['text'] for w in current_block).strip()
+
+                # For high-priority punctuation, break more readily
+                if self._has_high_priority_punctuation(word):
+                    # Always break after sentence endings if we have reasonable content
+                    if len(current_text) >= 8:
+                        self._finalize_and_add_subtitle(current_block, next_word_start=next_word_start)
+                        current_block = []
+                        continue
+
+                # For other punctuation, use smart threshold based on CPS estimation
+                threshold = self._calculate_smart_punctuation_threshold(current_block)
+                if len(current_text) > self.max_chars_per_line * threshold:
+                    self._finalize_and_add_subtitle(current_block, next_word_start=next_word_start)
+                    current_block = []
+                    continue
+
             # Now check if we should break after adding this word (for other reasons)
             should_break_after = self._should_break_at_word(word, current_block, is_last_word, next_word_start)
 
@@ -1068,12 +1192,8 @@ class SrtProcessor:
                     not self._text_exceeds_two_lines(text_after)):
                     return break_position
 
-        # If no punctuation breaks work, check if we really need to break
-        current_text = "".join(w['text'] for w in current_block).strip()
-
-        # Only break if text is getting too long
-        if not self._text_exceeds_two_lines(current_text) and len(current_text) <= self.max_chars_per_line * 1.2:
-            return len(current_block)  # Don't break if not necessary
+        # If no punctuation breaks work, we still need to break for CPS control
+        # Don't return early - proceed to scoring system for optimal break point
 
         # Last resort: use scoring system but with lower threshold
         if self.is_cjk:
@@ -1104,8 +1224,12 @@ class SrtProcessor:
                 best_score = score
                 best_break_point = i
 
-        # Return the best break point found, with lower threshold to prefer any punctuation
-        return best_break_point if best_score > 10 else len(current_block)
+        # Return the best break point found, or use fallback if no good score
+        if best_score > 10:
+            return best_break_point
+        else:
+            # Use fallback break point for CPS control
+            return self._find_fallback_break_point(current_block)
 
     def _calculate_break_point_score(self, current_block: List[Dict], break_position: int,
                                    word_text: str, punctuation_scores: Dict[str, int]) -> int:
