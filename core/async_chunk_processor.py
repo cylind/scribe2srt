@@ -11,7 +11,7 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from PySide6.QtCore import QObject, Signal, QMutex, QMutexLocker, QSemaphore, QRunnable, QEventLoop, QTimer
 
-from api_client import ElevenLabsSTTClient
+from api.client import ElevenLabsSTTClient
 
 
 class ChunkProcessorSignals(QObject):

@@ -19,16 +19,16 @@ from PySide6.QtGui import QIcon
 
 # --- 从重构后的模块中导入 ---
 from core.config import (
-    LANGUAGES, SETTINGS_FILE, PAUSE_THRESHOLD, MAX_SUBTITLE_DURATION,
+    LANGUAGES, SETTINGS_FILE, MAX_SUBTITLE_DURATION,
     DEFAULT_SPLIT_DURATION_MIN, DEFAULT_SUBTITLE_SETTINGS
 )
 from core.worker import Worker
 from core.ffmpeg_utils import is_ffmpeg_available, extract_audio, get_media_info
-from srt_processor import create_srt_from_json
-from ui.widgets import CustomCheckBox
-from ui.settings_dialog import SettingsDialog
-from ui.async_settings_dialog import AsyncSettingsDialog
-from ui.segmented_progress_bar import SegmentedProgressBar
+from core.srt_processor import create_srt_from_json
+from .widgets import CustomCheckBox
+from .settings_dialog import SettingsDialog
+from .async_settings_dialog import AsyncSettingsDialog
+from .segmented_progress_bar import SegmentedProgressBar
 
 
 # --- Codec to Container Mapping ---
@@ -184,10 +184,9 @@ class MainWindow(QMainWindow):
     # --- 设置管理 ---
     def load_settings(self):
         """从文件加载设置，如果文件不存在则使用默认值。"""
-        # 使用新的默认设置结构
+        # 使用新的默认设置结构（移除pause_threshold）
         self.settings = {
             # 基础设置
-            "pause_threshold": DEFAULT_SUBTITLE_SETTINGS["pause_threshold"],
             "split_duration_min": DEFAULT_SPLIT_DURATION_MIN,
 
             # 专业字幕设置
@@ -218,8 +217,7 @@ class MainWindow(QMainWindow):
             except (json.JSONDecodeError, TypeError):
                 print(f"警告: 无法解析 {SETTINGS_FILE}。将使用默认设置。")
 
-        # 为了向后兼容，保留这些属性
-        self.pause_threshold = self.settings["pause_threshold"]
+        # 为了向后兼容，保留这些属性（移除pause_threshold）
         self.max_subtitle_duration = self.settings["max_subtitle_duration"]
         self.split_duration_min = self.settings["split_duration_min"]
 
@@ -237,8 +235,7 @@ class MainWindow(QMainWindow):
             # 更新所有设置
             self.settings.update(new_settings)
 
-            # 为了向后兼容，更新这些属性
-            self.pause_threshold = new_settings["pause_threshold"]
+            # 为了向后兼容，更新这些属性（移除pause_threshold）
             self.max_subtitle_duration = new_settings["max_subtitle_duration"]
             self.split_duration_min = new_settings["split_duration_min"]
 
@@ -322,17 +319,17 @@ class MainWindow(QMainWindow):
         self.segmented_progress_bar.set_single_file_mode(self.selected_file_path)
         self.progress_label.setText("准备中...")
         self.progress_label.setVisible(True)
-        
+
         file_to_process = self.selected_file_path
-        
+
         video_extensions = ['.mp4', '.mkv', '.mov', '.avi', '.flv', '.webm']
         if ext.lower() in video_extensions:
             if self.ffmpeg_available:
                 self.log_area.append("检测到视频文件，正在分析音频流...")
-                
+
                 media_info = get_media_info(self.selected_file_path, self.log_area.append)
                 codec = media_info.get("codec") if media_info else None
-                
+
                 if not codec:
                     self.on_task_error("无法检测到视频中的音频编码，无法继续提取。")
                     return
@@ -342,18 +339,18 @@ class MainWindow(QMainWindow):
 
                 base_name, _ = os.path.splitext(os.path.basename(self.selected_file_path))
                 temp_audio_path = os.path.join(os.path.dirname(self.selected_file_path), f"temp_audio_{base_name}{extension}")
-                
+
                 self.log_area.append("正在提取音频...")
                 if not extract_audio(self.selected_file_path, temp_audio_path, self.log_area.append):
                     self.on_task_error("音频提取失败。")
                     return
-                
+
                 self.temp_audio_file = temp_audio_path
                 file_to_process = temp_audio_path
             else:
                 QMessageBox.warning(self, "功能限制", "检测到视频文件但未找到 FFmpeg。\n将尝试直接上传原始文件，但这可能失败。")
                 self.log_area.append("警告: 正在尝试直接上传视频文件...")
-        
+
         self._execute_transcription_task(file_to_process, self.selected_file_path)
 
     def _process_json_file_directly(self, json_path: str):
@@ -367,9 +364,9 @@ class MainWindow(QMainWindow):
             with open(json_path, 'r', encoding='utf-8') as f:
                 json_data = json.load(f)
 
+            # 移除pause_threshold参数，使用新的算法
             srt_data = create_srt_from_json(
                 json_data,
-                pause_threshold=self.pause_threshold,
                 max_subtitle_duration=self.max_subtitle_duration,
                 subtitle_settings=self.settings
             )
@@ -395,17 +392,17 @@ class MainWindow(QMainWindow):
 
         self.upload_complete_logged = False
         self.set_ui_enabled(False)
-        
+
         if not restore_state:
             self.log_area.append("开始执行转录任务...")
-        
+
         self.thread = QThread()
         self.worker = Worker(
             file_path=file_to_process,
             language_code=LANGUAGES.get(self.lang_combo.currentText(), "auto"),
             tag_audio_events=self.audio_events_checkbox.isChecked(),
             original_file_path=original_file,
-            pause_threshold=self.pause_threshold,
+            # 移除pause_threshold参数
             max_subtitle_duration=self.max_subtitle_duration,
             split_duration_min=self.split_duration_min,
             ffmpeg_available=self.ffmpeg_available,
@@ -425,11 +422,11 @@ class MainWindow(QMainWindow):
         self.worker.log_message.connect(self.log_area.append)
         self.worker.progress_updated.connect(self.update_progress)
         self.worker.chunk_progress.connect(self.update_chunk_progress)
-        
+
         # 线程结束后，统一由 _handle_task_completion 处理
         self.thread.finished.connect(self._handle_task_completion)
         self.thread.started.connect(self.worker.run)
-        
+
         self.thread.start()
 
     def cancel_process(self):
@@ -450,7 +447,7 @@ class MainWindow(QMainWindow):
     def on_task_error(self, message: str):
         """任务失败时的处理，提供重试选项。"""
         self.log_area.append(f"\n❌ 任务失败: {message}")
-        
+
         if "用户取消" in message or "cancelled" in message.lower():
             self._pending_retry_state = None
         else:
@@ -461,9 +458,9 @@ class MainWindow(QMainWindow):
             msg_box.setInformativeText(message)
             retry_button = msg_box.addButton("重试", QMessageBox.ButtonRole.AcceptRole)
             msg_box.addButton("关闭", QMessageBox.ButtonRole.RejectRole)
-            
+
             msg_box.exec()
-            
+
             if msg_box.clickedButton() == retry_button:
                 # 保存状态以供重试
                 if self.worker:
@@ -498,83 +495,58 @@ class MainWindow(QMainWindow):
                 self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB")
 
         # 检查上传完成
-        if total_bytes > 0:
-            percentage = int((bytes_sent / total_bytes) * 100)
-            if percentage == 100 and not self.upload_complete_logged:
-                self.log_area.append("上传成功！等待服务器转录...")
-                self.upload_complete_logged = True
+        if not self.upload_complete_logged and bytes_sent >= total_bytes and total_bytes > 0:
+            self.upload_complete_logged = True
+            self.progress_label.setText("上传完成，正在处理...")
 
-    def update_chunk_progress(self, message: str):
-        """更新多片段处理时的进度标签。"""
-        self.progress_label.setText(message)
-
-        # 如果是异步处理开始，设置分段进度条
-        if self.worker and hasattr(self.worker, 'temp_chunks') and len(self.worker.temp_chunks) > 1:
-            self.segmented_progress_bar.set_segments(self.worker.temp_chunks)
-        else:
-            self.segmented_progress_bar.reset()
+    def update_chunk_progress(self, chunk_index, status, message):
+        """更新片段处理进度。"""
+        self.segmented_progress_bar.update_chunk_status(chunk_index, status)
+        if message:
+            self.log_area.append(message)
 
     def _handle_task_completion(self):
-        """
-        统一处理任务结束后的所有逻辑（成功、失败、重试）。
-        这是确保线程安全和状态正确的关键。
-        """
-        self.log_area.append("线程已结束，正在清理资源...")
-
-        # 将待处理的重试状态捕获到局部变量中
-        retry_state = self._pending_retry_state
-        self._pending_retry_state = None  # 立即清除实例变量
-
-        # 清理旧的worker和thread
-        if self.worker:
-            self.worker.deleteLater()
-            self.worker = None
-        if self.thread:
-            self.thread.deleteLater()
-            self.thread = None
-        
-        # 检查是否有待处理的重试任务
-        if retry_state:
-            self.log_area.append("\n... 用户选择重试 ...")
-            self.log_area.append(f"将从片段 {retry_state.get('current_chunk_index', 0) + 1} 处恢复任务。")
-            
-            # 使用QTimer和捕获的局部变量来安全地启动重试
-            QTimer.singleShot(100, lambda state=retry_state: self._execute_transcription_task(
-                state.get("original_file_path"),
-                state.get("original_file_path"),
-                restore_state=state
-            ))
-        else:
-            # 如果没有重试任务，则清理所有临时文件并重置UI
-            self.cleanup_temp_files()
-            self.reset_ui_after_task()
-
-    def cleanup_temp_files(self):
-        """清理所有临时文件（提取的音频和分块）。"""
+        """处理任务完成后的清理工作。"""
+        # 清理临时音频文件
         if self.temp_audio_file and os.path.exists(self.temp_audio_file):
             try:
                 os.remove(self.temp_audio_file)
-                self.log_area.append(f"已清理临时音频文件: {os.path.basename(self.temp_audio_file)}")
-                self.temp_audio_file = None
+                self.log_area.append(f"已清理临时文件: {os.path.basename(self.temp_audio_file)}")
             except OSError as e:
-                self.log_area.append(f"清理临时音频文件失败: {e}")
-        # Worker负责清理自己的分块文件
+                self.log_area.append(f"清理临时文件失败: {e}")
+            finally:
+                self.temp_audio_file = None
 
-    # --- 事件处理 ---
+        # 重置UI状态
+        self.reset_ui_after_task()
+
+        # 如果有待重试的状态，执行重试
+        if self._pending_retry_state:
+            QTimer.singleShot(1000, self._execute_retry)
+
+    def _execute_retry(self):
+        """执行重试逻辑。"""
+        if self._pending_retry_state:
+            self.log_area.append("\n🔄 正在重试...")
+            restore_state = self._pending_retry_state
+            self._pending_retry_state = None
+
+            # 重新执行任务
+            self._execute_transcription_task(
+                restore_state.get('file_path'),
+                restore_state.get('original_file_path'),
+                restore_state
+            )
+
+    # --- 拖放功能 ---
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls() and len(event.mimeData().urls()) == 1:
+        """处理拖拽进入事件。"""
+        if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        if event.mimeData().hasUrls():
-            file_path = event.mimeData().urls()[0].toLocalFile()
+        """处理文件拖放事件。"""
+        urls = event.mimeData().urls()
+        if urls:
+            file_path = urls[0].toLocalFile()
             self.set_file(file_path)
-
-    def closeEvent(self, event):
-        """关闭窗口前确保所有后台任务都已清理。"""
-        self.cancel_process()
-        if self.thread and self.thread.isRunning():
-            self.thread.wait(3000)
-        QThreadPool.globalInstance().waitForDone(-1)
-        self.cleanup_temp_files()
-        event.accept()

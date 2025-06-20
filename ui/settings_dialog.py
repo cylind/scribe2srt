@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.config import (
-    PAUSE_THRESHOLD, MAX_SUBTITLE_DURATION, DEFAULT_SPLIT_DURATION_MIN,
+    MAX_SUBTITLE_DURATION, DEFAULT_SPLIT_DURATION_MIN,
     DEFAULT_SUBTITLE_SETTINGS
 )
 
@@ -25,20 +25,7 @@ class SettingsDialog(QDialog):
         # 创建主布局
         main_layout = QVBoxLayout()
 
-        # === 基础设置组 ===
-        basic_group = QGroupBox("基础设置")
-        basic_layout = QFormLayout()
-
-        # 长停顿阈值
-        self.pause_threshold_spin = QDoubleSpinBox()
-        self.pause_threshold_spin.setDecimals(2)
-        self.pause_threshold_spin.setSingleStep(0.1)
-        self.pause_threshold_spin.setRange(0.1, 5.0)
-        self.pause_threshold_spin.setSuffix(" 秒")
-        self.pause_threshold_spin.setValue(current_settings.get("pause_threshold", DEFAULT_SUBTITLE_SETTINGS["pause_threshold"]))
-
-        basic_layout.addRow("长停顿阈值:", self.pause_threshold_spin)
-        basic_group.setLayout(basic_layout)
+        # Note: 基础设置组已移除，因为长停顿阈值已被基于标点符号的分割策略替代
 
         # === 专业字幕设置组 ===
         subtitle_group = QGroupBox("专业字幕设置")
@@ -118,7 +105,6 @@ class SettingsDialog(QDialog):
         cpl_group.setLayout(cpl_layout)
 
         # 添加所有组到主布局
-        main_layout.addWidget(basic_group)
         main_layout.addWidget(subtitle_group)
         main_layout.addWidget(cps_group)
         main_layout.addWidget(cpl_group)
@@ -138,8 +124,7 @@ class SettingsDialog(QDialog):
 
     def reset_to_defaults(self):
         """将设置重置为程序默认值。"""
-        # 基础设置
-        self.pause_threshold_spin.setValue(DEFAULT_SUBTITLE_SETTINGS["pause_threshold"])
+        # Note: 基础设置已移除
 
         # 专业字幕设置
         self.min_duration_spin.setValue(DEFAULT_SUBTITLE_SETTINGS["min_subtitle_duration"])
@@ -157,9 +142,6 @@ class SettingsDialog(QDialog):
     def get_settings(self) -> dict:
         """获取对话框中的当前设置值。"""
         return {
-            # 基础设置
-            "pause_threshold": self.pause_threshold_spin.value(),
-
             # 专业字幕设置
             "min_subtitle_duration": self.min_duration_spin.value(),
             "max_subtitle_duration": self.max_duration_spin.value(),

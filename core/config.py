@@ -23,7 +23,7 @@ MAX_CPS = CPS_SETTINGS["default"]  # 保持向后兼容
 MIN_SUBTITLE_DURATION = 0.83  # 字幕最短显示时间（秒）- Netflix标准：5/6秒
 MAX_SUBTITLE_DURATION = 7.0   # 字幕最长显示时间（秒）
 MIN_SUBTITLE_GAP = 0.083      # 字幕间最小间隔（秒）- 约2帧@24fps
-PAUSE_THRESHOLD = 0.7         # 判定为长停顿的阈值（秒）
+# Note: PAUSE_THRESHOLD已移除，改用基于标点符号的语义分割
 
 # 每行字符数限制（CPL）
 CPL_SETTINGS = {
@@ -36,7 +36,7 @@ DEFAULT_SUBTITLE_SETTINGS = {
     "min_subtitle_duration": MIN_SUBTITLE_DURATION,
     "max_subtitle_duration": MAX_SUBTITLE_DURATION,
     "min_subtitle_gap": MIN_SUBTITLE_GAP,
-    "pause_threshold": PAUSE_THRESHOLD,
+    # Note: pause_threshold已移除，改用基于标点符号的语义分割
     "cjk_cps": CPS_SETTINGS["cjk"],
     "latin_cps": CPS_SETTINGS["latin"],
     "cjk_chars_per_line": CPL_SETTINGS["cjk"],

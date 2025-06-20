@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from optimize_based_on_analysis import EnhancedSubtitleAnalyzer
+from .optimize_based_on_analysis import EnhancedSubtitleAnalyzer
 
 def test_single_file(srt_path: str):
     """测试单个SRT文件"""

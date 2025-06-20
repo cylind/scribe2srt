@@ -12,8 +12,8 @@ from typing import Optional, List, Dict, Any
 
 from PySide6.QtCore import QObject, Signal, QThreadPool
 
-from api_client import ElevenLabsSTTClient
-from srt_processor import create_srt_from_json
+from api.client import ElevenLabsSTTClient
+from .srt_processor import create_srt_from_json
 from .async_chunk_processor import AsyncChunkProcessor
 
 class Worker(QObject):
@@ -27,7 +27,7 @@ class Worker(QObject):
     chunk_progress = Signal(str)
 
     def __init__(self, file_path: str, language_code: str, tag_audio_events: bool,
-                 pause_threshold: float, max_subtitle_duration: float, split_duration_min: int,
+                 max_subtitle_duration: float, split_duration_min: int,
                  original_file_path: Optional[str] = None, ffmpeg_available: bool = False,
                  restore_state: Optional[Dict[str, Any]] = None, subtitle_settings: Optional[Dict] = None,
                  enable_async_processing: bool = True, max_concurrent_chunks: int = 3,
@@ -37,7 +37,6 @@ class Worker(QObject):
         self.original_file_path = original_file_path if original_file_path else file_path
         self.language_code = language_code
         self.tag_audio_events = tag_audio_events
-        self.pause_threshold = pause_threshold
         self.max_subtitle_duration = max_subtitle_duration
         self.split_duration_sec = split_duration_min * 60
         self.ffmpeg_available = ffmpeg_available
@@ -95,7 +94,6 @@ class Worker(QObject):
             "original_file_path": self.original_file_path,
             "language_code": self.language_code,
             "tag_audio_events": self.tag_audio_events,
-            "pause_threshold": self.pause_threshold,
             "max_subtitle_duration": self.max_subtitle_duration,
             "split_duration_min": self.split_duration_sec / 60,
             "ffmpeg_available": self.ffmpeg_available,
@@ -511,7 +509,6 @@ class Worker(QObject):
         self.log_message.emit("正在生成SRT字幕文件...")
         srt_data = create_srt_from_json(
             self.combined_transcript,
-            pause_threshold=self.pause_threshold,
             max_subtitle_duration=self.max_subtitle_duration,
             subtitle_settings=self.subtitle_settings
         )
