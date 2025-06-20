@@ -24,7 +24,8 @@ class Worker(QObject):
     error = Signal(str)
     log_message = Signal(str)
     progress_updated = Signal(int, int)
-    chunk_progress = Signal(str)
+    chunk_progress = Signal(int, str, str)  # chunk_index, status, message
+    chunks_ready = Signal(list)  # chunk_paths - 通知UI设置分段进度条
 
     def __init__(self, file_path: str, language_code: str, tag_audio_events: bool,
                  max_subtitle_duration: float, split_duration_min: int,
@@ -69,6 +70,9 @@ class Worker(QObject):
             self.current_chunk_index = self.restore_state.get("current_chunk_index", 0)
             self.total_chunks = self.restore_state.get("total_chunks", 0)
             self.time_offset = self.restore_state.get("time_offset", 0.0)
+            # 恢复处理模式信息
+            self.was_single_file_mode = self.restore_state.get("was_single_file_mode", False)
+            self.extracted_audio_file = self.restore_state.get("extracted_audio_file", None)
         else:
             self.temp_chunks = []
             self.owned_temp_chunks = []
@@ -76,6 +80,8 @@ class Worker(QObject):
             self.current_chunk_index = 0
             self.total_chunks = 0
             self.time_offset = 0.0
+            self.was_single_file_mode = False
+            self.extracted_audio_file = None
 
     def get_state(self) -> Dict[str, Any]:
         """获取当前worker的状态，用于任务恢复。"""
@@ -103,6 +109,9 @@ class Worker(QObject):
             "max_retries": self.max_retries,
             "api_rate_limit_per_minute": self.api_rate_limit_per_minute,
             "async_progress": async_progress,
+            # 添加处理模式信息，用于正确的重试逻辑
+            "was_single_file_mode": self.total_chunks == 1,
+            "extracted_audio_file": getattr(self, 'extracted_audio_file', None),
         }
 
     def run(self):
@@ -111,12 +120,53 @@ class Worker(QObject):
 
         if is_restoring:
             self.log_message.emit("...从断点处恢复任务...")
-            # 在恢复模式下，如果切片文件丢失，则尝试重新创建它们
-            if not all(os.path.exists(p) for p in self.temp_chunks):
-                self.log_message.emit("检测到临时切片文件丢失，正在重新切分...")
-                if not self._split_audio(self.restore_state.get("original_file_path")):
-                     self.error.emit("恢复任务失败：无法重新切分音频。")
-                     return
+
+            # 检查临时文件是否存在
+            missing_files = [p for p in self.temp_chunks if not os.path.exists(p)]
+
+            if missing_files:
+                if self.was_single_file_mode:
+                    # 单文件模式：重新提取音频而不是切分
+                    self.log_message.emit("检测到提取的音频文件丢失，正在重新提取...")
+
+                    # 重新执行音频提取逻辑
+                    original_file = self.restore_state.get("original_file_path", self.original_file_path)
+
+                    # 检查是否需要从视频提取音频
+                    _, ext = os.path.splitext(original_file)
+                    video_extensions = ['.mp4', '.mkv', '.mov', '.avi', '.flv', '.webm']
+
+                    if ext.lower() in video_extensions and self.ffmpeg_available:
+                        # 重新提取音频
+                        from core.ffmpeg_utils import get_media_info, extract_audio
+                        from ui.main_window import CODEC_EXTENSION_MAP, DEFAULT_AUDIO_EXTENSION
+
+                        media_info = get_media_info(original_file)
+                        codec = media_info.get("codec") if media_info else None
+                        extension = CODEC_EXTENSION_MAP.get(codec, DEFAULT_AUDIO_EXTENSION) if codec else DEFAULT_AUDIO_EXTENSION
+
+                        base_name, _ = os.path.splitext(os.path.basename(original_file))
+                        temp_audio_path = os.path.join(os.path.dirname(original_file), f"temp_audio_{base_name}{extension}")
+
+                        if not extract_audio(original_file, temp_audio_path):
+                            self.error.emit("恢复任务失败：无法重新提取音频。")
+                            return
+
+                        # 更新文件路径
+                        self.file_path = temp_audio_path
+                        self.extracted_audio_file = temp_audio_path
+                        self.temp_chunks = [temp_audio_path]
+                        self.log_message.emit(f"音频重新提取完成: {os.path.basename(temp_audio_path)}")
+                    else:
+                        # 直接使用原始音频文件
+                        self.temp_chunks = [original_file]
+                        self.log_message.emit("使用原始音频文件继续处理")
+                else:
+                    # 多片段模式：重新切分音频
+                    self.log_message.emit("检测到临时切片文件丢失，正在重新切分...")
+                    if not self._split_audio(self.restore_state.get("original_file_path", self.original_file_path)):
+                         self.error.emit("恢复任务失败：无法重新切分音频。")
+                         return
 
             # 恢复模式下的处理逻辑
             self._process_restored_chunks()
@@ -138,12 +188,17 @@ class Worker(QObject):
             self.log_message.emit("文件无需切分，执行单文件处理流程。")
             self.total_chunks = 1
             self.temp_chunks.append(self.file_path)
+            # 记录单文件模式和提取的音频文件信息
+            self.was_single_file_mode = True
+            if self.file_path != self.original_file_path:
+                # 如果处理的文件不是原始文件，说明是提取的音频
+                self.extracted_audio_file = self.file_path
             self._process_next_chunk()
 
     def _split_audio(self, audio_path: str) -> bool:
         """使用 FFmpeg 切分音频文件。"""
         self.log_message.emit("正在切分音频文件...")
-        self.chunk_progress.emit("正在切分音频...")
+        self.chunk_progress.emit(-1, "splitting", "正在切分音频...")
         
         base_dir = os.path.dirname(audio_path)
         base_name, _ = os.path.splitext(os.path.basename(audio_path))
@@ -176,6 +231,8 @@ class Worker(QObject):
 
             self.total_chunks = len(self.temp_chunks)
             self.log_message.emit(f"成功切分为 {self.total_chunks} 个片段。")
+            # 通知UI设置分段进度条
+            self.chunks_ready.emit(self.temp_chunks)
             return True
 
         except (subprocess.CalledProcessError, FileNotFoundError, RuntimeError) as e:
@@ -203,7 +260,7 @@ class Worker(QObject):
         """异步处理所有音频片段"""
         self.log_message.emit("-" * 20)
         self.log_message.emit(f"启用异步处理模式，并发处理 {self.total_chunks} 个片段...")
-        self.chunk_progress.emit(f"异步处理 {self.total_chunks} 个片段")
+        self.chunk_progress.emit(-1, "async_start", f"异步处理 {self.total_chunks} 个片段")
 
         # 创建异步处理器
         self.async_processor = AsyncChunkProcessor(
@@ -242,7 +299,7 @@ class Worker(QObject):
 
             self.log_message.emit("-" * 20)
             self.log_message.emit(f"正在处理片段 {self.current_chunk_index + 1}/{self.total_chunks}: {os.path.basename(chunk_path)}")
-            self.chunk_progress.emit(f"正在处理片段 {self.current_chunk_index + 1}/{self.total_chunks}")
+            self.chunk_progress.emit(self.current_chunk_index, "processing", f"正在处理片段 {self.current_chunk_index + 1}/{self.total_chunks}")
 
             self._process_single_file(chunk_path)
         else:
@@ -273,7 +330,7 @@ class Worker(QObject):
         """异步处理剩余的音频片段"""
         self.log_message.emit("-" * 20)
         self.log_message.emit(f"恢复模式：异步处理剩余 {len(remaining_chunks)} 个片段...")
-        self.chunk_progress.emit(f"恢复异步处理 {len(remaining_chunks)} 个片段")
+        self.chunk_progress.emit(-1, "async_restore", f"恢复异步处理 {len(remaining_chunks)} 个片段")
 
         # 创建异步处理器
         self.async_processor = AsyncChunkProcessor(
@@ -323,14 +380,17 @@ class Worker(QObject):
     def _on_async_chunk_started(self, chunk_index: int):
         """异步片段开始处理回调"""
         self.log_message.emit(f"开始异步处理片段 {chunk_index + 1}/{self.total_chunks}")
+        self.chunk_progress.emit(chunk_index, "started", f"开始处理片段 {chunk_index + 1}/{self.total_chunks}")
 
     def _on_async_chunk_completed(self, chunk_index: int, transcript_json: dict):
         """异步片段完成回调"""
         self.log_message.emit(f"片段 {chunk_index + 1}/{self.total_chunks} 异步转录成功")
+        self.chunk_progress.emit(chunk_index, "completed", f"片段 {chunk_index + 1}/{self.total_chunks} 转录完成")
 
     def _on_async_chunk_failed(self, chunk_index: int, error_message: str):
         """异步片段失败回调"""
         self.log_message.emit(f"片段 {chunk_index + 1}/{self.total_chunks} 处理失败: {error_message}")
+        self.chunk_progress.emit(chunk_index, "failed", f"片段 {chunk_index + 1}/{self.total_chunks} 处理失败")
 
     def _on_async_all_completed(self, combined_transcript: dict):
         """所有异步片段完成回调"""
@@ -338,7 +398,7 @@ class Worker(QObject):
         self.combined_transcript = combined_transcript
 
         # 确保进度显示完成
-        self.chunk_progress.emit("异步处理完成，正在生成字幕文件...")
+        self.chunk_progress.emit(-1, "completed", "异步处理完成，正在生成字幕文件...")
 
         # 调用最终处理
         self._finalize_task()
@@ -378,13 +438,15 @@ class Worker(QObject):
                 if completed_chunks:
                     self.log_message.emit(f"合并已完成的 {len(completed_chunks)} 个片段结果...")
 
-                    # 按顺序合并已完成的片段
+                    # 按顺序合并已完成的片段（时间偏移已在异步处理器中处理）
                     for chunk_index in sorted(completed_chunks.keys()):
                         transcript_json = completed_chunks[chunk_index]
 
                         if not self.combined_transcript:
-                            self.combined_transcript = transcript_json
+                            # 第一个片段作为模板
+                            self.combined_transcript = transcript_json.copy()
                         else:
+                            # 后续片段直接追加（时间偏移已经在异步处理器中处理过）
                             words = transcript_json.get("words", [])
                             self.combined_transcript["words"].extend(words)
                             if self.combined_transcript["text"]:
@@ -422,12 +484,14 @@ class Worker(QObject):
         # 调整索引以反映实际的全局片段位置
         actual_chunk_index = self.current_chunk_index + chunk_index
         self.log_message.emit(f"恢复模式：开始异步处理片段 {actual_chunk_index + 1}/{self.total_chunks}")
+        self.chunk_progress.emit(actual_chunk_index, "started", f"恢复处理片段 {actual_chunk_index + 1}/{self.total_chunks}")
 
     def _on_async_chunk_completed_restored(self, chunk_index: int, transcript_json: dict):
         """恢复模式：异步片段完成回调"""
         # 调整索引以反映实际的全局片段位置
         actual_chunk_index = self.current_chunk_index + chunk_index
         self.log_message.emit(f"恢复模式：片段 {actual_chunk_index + 1}/{self.total_chunks} 异步转录成功")
+        self.chunk_progress.emit(actual_chunk_index, "completed", f"恢复片段 {actual_chunk_index + 1}/{self.total_chunks} 转录完成")
         # transcript_json 在这里不需要特殊处理，由异步处理器自动合并
 
     def _on_async_all_completed_restored(self, remaining_transcript: dict):
@@ -435,6 +499,7 @@ class Worker(QObject):
         self.log_message.emit("恢复模式：所有剩余片段异步处理完成，正在合并结果...")
 
         # 合并已有的转录结果和新的转录结果
+        # 注意：remaining_transcript中的时间偏移已经在异步处理器中正确处理
         if self.combined_transcript and self.combined_transcript.get("words"):
             # 已有部分转录结果，需要合并
             self.combined_transcript["words"].extend(remaining_transcript.get("words", []))
@@ -516,17 +581,40 @@ class Worker(QObject):
             self.error.emit("从合并后的JSON生成SRT失败。")
             self._cleanup_chunks()
             return
-            
+
         output_srt_path = base_path + ".srt"
         try:
             with open(output_srt_path, 'w', encoding='utf-8') as f:
                 f.write(srt_data)
             self.log_message.emit(f"最终SRT字幕文件已保存到:\n{output_srt_path}")
+
+            # 在单文件处理模式下，清理冗余的临时JSON文件
+            self._cleanup_temporary_json_files()
+
             self.finished.emit("任务成功完成！")
         except Exception as e:
             self.error.emit(f"保存最终SRT文件时出错: {e}")
         finally:
             self._cleanup_chunks()
+
+    def _cleanup_temporary_json_files(self):
+        """清理单文件处理模式下的冗余临时JSON文件"""
+        if self.total_chunks == 1:
+            # 单文件处理模式：清理临时JSON文件
+            try:
+                chunk_path = self.temp_chunks[0]
+                base_chunk_path, _ = os.path.splitext(chunk_path)
+                temp_json_path = base_chunk_path + ".json"
+
+                if os.path.exists(temp_json_path):
+                    os.remove(temp_json_path)
+                    self.log_message.emit(f"已清理临时JSON文件: {os.path.basename(temp_json_path)}")
+
+            except (OSError, IndexError) as e:
+                self.log_message.emit(f"清理临时JSON文件时出错: {e}")
+        else:
+            # 多片段处理模式：保留临时JSON文件用于调试
+            self.log_message.emit("多片段处理模式：保留临时JSON文件用于调试")
 
     def request_cancellation(self):
         """请求取消当前任务。"""

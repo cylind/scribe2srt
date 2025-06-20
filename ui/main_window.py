@@ -422,6 +422,7 @@ class MainWindow(QMainWindow):
         self.worker.log_message.connect(self.log_area.append)
         self.worker.progress_updated.connect(self.update_progress)
         self.worker.chunk_progress.connect(self.update_chunk_progress)
+        self.worker.chunks_ready.connect(self.on_chunks_ready)
 
         # 线程结束后，统一由 _handle_task_completion 处理
         self.thread.finished.connect(self._handle_task_completion)
@@ -504,6 +505,11 @@ class MainWindow(QMainWindow):
         self.segmented_progress_bar.update_chunk_status(chunk_index, status)
         if message:
             self.log_area.append(message)
+
+    def on_chunks_ready(self, chunk_paths):
+        """当音频切分完成，设置分段进度条。"""
+        self.segmented_progress_bar.set_segments(chunk_paths)
+        self.log_area.append(f"分段进度条已设置，共 {len(chunk_paths)} 个片段")
 
     def _handle_task_completion(self):
         """处理任务完成后的清理工作。"""

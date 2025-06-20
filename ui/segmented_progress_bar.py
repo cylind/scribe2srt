@@ -221,3 +221,64 @@ class SegmentedProgressBar(QWidget):
             else:
                 sent_mb = bytes_sent / (1024 * 1024)
                 self.total_label.setText(f"正在上传: {sent_mb:.2f} MB")
+
+    def update_chunk_status(self, chunk_index: int, status: str):
+        """更新片段状态（用于异步处理状态显示）"""
+        if 0 <= chunk_index < len(self.segments):
+            segment = self.segments[chunk_index]
+            progress_bar = segment['progress_bar']
+
+            if progress_bar:
+                # 根据状态设置不同的样式
+                if status == "started":
+                    # 开始处理 - 使用蓝色
+                    color_style = """
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #4a9eff, stop:1 #6bb6ff);
+                            border-radius: 2px;
+                        }
+                    """
+                elif status == "completed":
+                    # 完成 - 使用绿色
+                    color_style = """
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #4ade80, stop:1 #22c55e);
+                            border-radius: 2px;
+                        }
+                    """
+                    progress_bar.setValue(100)
+                    segment['progress'] = 100
+                elif status == "failed":
+                    # 失败 - 使用红色
+                    color_style = """
+                        QProgressBar::chunk {
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 #ef4444, stop:1 #dc2626);
+                            border-radius: 2px;
+                        }
+                    """
+                else:
+                    # 默认状态
+                    color_hue = (chunk_index * 60) % 360
+                    color_style = f"""
+                        QProgressBar::chunk {{
+                            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                stop:0 hsl({color_hue}, 70%, 50%),
+                                stop:1 hsl({color_hue}, 70%, 60%));
+                            border-radius: 2px;
+                        }}
+                    """
+
+                # 应用样式
+                base_style = """
+                    QProgressBar {
+                        border: 1px solid #555;
+                        border-radius: 3px;
+                        background-color: #2b2b2b;
+                    }
+                """
+                progress_bar.setStyleSheet(base_style + color_style)
+
+            self.update_total_label()

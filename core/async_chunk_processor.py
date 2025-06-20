@@ -328,17 +328,42 @@ class AsyncChunkProcessor(QObject):
                 self.processing_failed.emit(error_msg)
 
     def _merge_transcripts(self) -> dict:
-        """按顺序合并所有转录结果"""
-        combined_transcript = {"words": [], "text": ""}
+        """按顺序合并所有转录结果，保持完整的JSON结构
 
-        # 按片段索引顺序合并
+        注意：每个片段的时间偏移已经在ChunkTask.run()中应用过了，
+        这里只需要简单合并，不需要重复计算时间偏移。
+        """
+        if not self.completed_chunks:
+            return {}
+
+        # 获取第一个片段作为模板，保留完整的元数据结构
+        first_chunk_index = min(self.completed_chunks.keys())
+        combined_transcript = self.completed_chunks[first_chunk_index].copy()
+
+        # 确保有words和text字段
+        if "words" not in combined_transcript:
+            combined_transcript["words"] = []
+        if "text" not in combined_transcript:
+            combined_transcript["text"] = ""
+
+        # 按片段索引顺序合并（时间偏移已经在各个片段中处理过了）
         for i in sorted(self.completed_chunks.keys()):
-            transcript = self.completed_chunks[i]
-            combined_transcript["words"].extend(transcript.get("words", []))
+            if i == first_chunk_index:
+                # 第一个片段已经作为模板，跳过
+                continue
 
-            if combined_transcript["text"]:
-                combined_transcript["text"] += " "
-            combined_transcript["text"] += transcript.get("text", "")
+            transcript = self.completed_chunks[i]
+
+            # 直接追加words（时间偏移已经在ChunkTask中处理）
+            words = transcript.get("words", [])
+            combined_transcript["words"].extend(words)
+
+            # 拼接文本
+            text = transcript.get("text", "")
+            if text:
+                if combined_transcript["text"]:
+                    combined_transcript["text"] += " "
+                combined_transcript["text"] += text
 
         return combined_transcript
 
