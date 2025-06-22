@@ -64,12 +64,12 @@ class Uploader(QRunnable):
             with open(self.file_path, 'rb') as f_audio:
                 # Update payload with the file object
                 self.payload['file'] = (os.path.basename(self.file_path), f_audio, self.payload['file'][2])
-                
+
                 encoder = MultipartEncoder(fields=self.payload)
                 monitor = MultipartEncoderMonitor(encoder, self.progress_callback)
-                
+
                 self.headers['Content-Type'] = monitor.content_type
-                
+
                 response = self.session.post(
                     ELEVENLABS_STT_API_URL,
                     params=ELEVENLABS_STT_PARAMS,

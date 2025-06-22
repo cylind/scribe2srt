@@ -606,15 +606,23 @@ class Worker(QObject):
     def _cleanup_temporary_json_files(self):
         """清理单文件处理模式下的冗余临时JSON文件"""
         if self.total_chunks == 1:
-            # 单文件处理模式：清理临时JSON文件
+            # 单文件处理模式：检查是否需要清理临时JSON文件
             try:
                 chunk_path = self.temp_chunks[0]
                 base_chunk_path, _ = os.path.splitext(chunk_path)
                 temp_json_path = base_chunk_path + ".json"
 
-                if os.path.exists(temp_json_path):
+                # 计算最终JSON文件路径
+                base_path, _ = os.path.splitext(self.original_file_path)
+                final_json_path = base_path + ".json"
+
+                # 只有当临时JSON文件路径与最终JSON文件路径不同时才删除
+                if (os.path.exists(temp_json_path) and
+                    os.path.abspath(temp_json_path) != os.path.abspath(final_json_path)):
                     os.remove(temp_json_path)
                     self.log_message.emit(f"已清理临时JSON文件: {os.path.basename(temp_json_path)}")
+                elif os.path.abspath(temp_json_path) == os.path.abspath(final_json_path):
+                    self.log_message.emit("单文件模式：临时JSON文件即为最终文件，无需清理")
 
             except (OSError, IndexError) as e:
                 self.log_message.emit(f"清理临时JSON文件时出错: {e}")
@@ -680,7 +688,6 @@ class Worker(QObject):
                     os.remove(self.file_path)
                     self.log_message.emit(f"已删除提取的音频文件: {os.path.basename(self.file_path)}")
             except (OSError, TypeError) as e:
-                file_name = os.path.basename(self.file_path) if self.file_path else "未知文件"
                 self.log_message.emit(f"清理提取的音频文件失败: {e}")
 
         self.log_message.emit("临时文件清理完成。")
