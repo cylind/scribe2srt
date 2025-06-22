@@ -9,7 +9,7 @@ import os
 from typing import List, Dict
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QProgressBar, QLabel, QVBoxLayout
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QColor, QFont
+
 
 
 class SegmentedProgressBar(QWidget):
@@ -80,20 +80,18 @@ class SegmentedProgressBar(QWidget):
                 progress_bar.setTextVisible(False)
                 progress_bar.setMinimumHeight(20)
 
-                # 设置不同颜色区分片段
-                color_hue = (segment['index'] * 60) % 360  # 每个片段不同色调
-                progress_bar.setStyleSheet(f"""
-                    QProgressBar {{
+                # 统一使用蓝色系作为默认颜色
+                progress_bar.setStyleSheet("""
+                    QProgressBar {
                         border: 1px solid #555;
                         border-radius: 3px;
                         background-color: #2b2b2b;
-                    }}
-                    QProgressBar::chunk {{
+                    }
+                    QProgressBar::chunk {
                         background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                            stop:0 hsl({color_hue}, 70%, 50%),
-                            stop:1 hsl({color_hue}, 70%, 60%));
+                            stop:0 #4a9eff, stop:1 #6bb6ff);
                         border-radius: 2px;
-                    }}
+                    }
                 """)
 
                 # 设置工具提示
@@ -260,15 +258,13 @@ class SegmentedProgressBar(QWidget):
                         }
                     """
                 else:
-                    # 默认状态
-                    color_hue = (chunk_index * 60) % 360
-                    color_style = f"""
-                        QProgressBar::chunk {{
+                    # 默认状态 - 统一使用蓝色系
+                    color_style = """
+                        QProgressBar::chunk {
                             background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 hsl({color_hue}, 70%, 50%),
-                                stop:1 hsl({color_hue}, 70%, 60%));
+                                stop:0 #4a9eff, stop:1 #6bb6ff);
                             border-radius: 2px;
-                        }}
+                        }
                     """
 
                 # 应用样式

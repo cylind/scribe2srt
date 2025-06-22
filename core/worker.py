@@ -91,6 +91,7 @@ class Worker(QObject):
             async_progress = self.async_processor.get_progress_info()
 
         return {
+            "file_path": self.file_path,  # 添加 file_path 到状态中
             "temp_chunks": self.temp_chunks,
             "owned_temp_chunks": self.owned_temp_chunks,
             "combined_transcript": self.combined_transcript,
@@ -246,7 +247,7 @@ class Worker(QObject):
         """处理下一个待处理的音频片段。"""
         if self._is_cancelled:
             self.error.emit("任务被用户取消。")
-            self._cleanup_chunks()
+            self._cleanup_chunks(force_cleanup=True)  # 用户取消时强制清理
             return
 
         # 检查是否使用异步处理
@@ -568,7 +569,7 @@ class Worker(QObject):
             self.log_message.emit(f"合并后的转录文本已保存到:\n{output_json_path}")
         except Exception as e:
             self.error.emit(f"保存合并后的 JSON 文件时出错: {e}")
-            self._cleanup_chunks()
+            # 保存失败时不清理临时文件，以便重试
             return
 
         self.log_message.emit("正在生成SRT字幕文件...")
@@ -579,10 +580,11 @@ class Worker(QObject):
         )
         if not srt_data:
             self.error.emit("从合并后的JSON生成SRT失败。")
-            self._cleanup_chunks()
+            # SRT生成失败时不清理临时文件，以便重试
             return
 
         output_srt_path = base_path + ".srt"
+        task_success = False
         try:
             with open(output_srt_path, 'w', encoding='utf-8') as f:
                 f.write(srt_data)
@@ -591,11 +593,15 @@ class Worker(QObject):
             # 在单文件处理模式下，清理冗余的临时JSON文件
             self._cleanup_temporary_json_files()
 
+            task_success = True
             self.finished.emit("任务成功完成！")
         except Exception as e:
             self.error.emit(f"保存最终SRT文件时出错: {e}")
+            # 保存失败时不清理临时文件，以便重试
         finally:
-            self._cleanup_chunks()
+            # 只有在任务成功完成时才清理临时文件
+            if task_success:
+                self._cleanup_chunks(force_cleanup=True)
 
     def _cleanup_temporary_json_files(self):
         """清理单文件处理模式下的冗余临时JSON文件"""
@@ -629,38 +635,52 @@ class Worker(QObject):
         if self.uploader:
             self.uploader.cancel()
 
-        self._cleanup_chunks()
+        # 用户取消时强制清理临时文件
+        self._cleanup_chunks(force_cleanup=True)
 
-    def _cleanup_chunks(self):
-        """清理所有临时的音频片段文件。"""
+    def _cleanup_chunks(self, force_cleanup=False):
+        """清理所有临时的音频片段文件。
+
+        Args:
+            force_cleanup: 强制清理，即使任务可能需要重试
+        """
+        # 如果不是强制清理且任务可能需要重试，则跳过清理
+        if not force_cleanup and not self._is_cancelled:
+            self.log_message.emit("任务可能需要重试，保留临时文件...")
+            return
+
         self.log_message.emit("正在清理所有临时音频片段...")
 
         # 清理音频片段文件
         if self.owned_temp_chunks:
             for chunk_path in self.owned_temp_chunks:
                 try:
-                    if os.path.exists(chunk_path):
+                    if chunk_path and os.path.exists(chunk_path):
                         os.remove(chunk_path)
                         self.log_message.emit(f"已删除临时片段: {os.path.basename(chunk_path)}")
 
                     # 同时删除对应的JSON文件
-                    json_path = os.path.splitext(chunk_path)[0] + ".json"
-                    if os.path.exists(json_path):
-                        os.remove(json_path)
-                        self.log_message.emit(f"已删除片段JSON: {os.path.basename(json_path)}")
+                    if chunk_path:
+                        json_path = os.path.splitext(chunk_path)[0] + ".json"
+                        if os.path.exists(json_path):
+                            os.remove(json_path)
+                            self.log_message.emit(f"已删除片段JSON: {os.path.basename(json_path)}")
 
-                except OSError as e:
-                    self.log_message.emit(f"清理文件 {os.path.basename(chunk_path)} 失败: {e}")
+                except (OSError, TypeError) as e:
+                    chunk_name = os.path.basename(chunk_path) if chunk_path else "未知文件"
+                    self.log_message.emit(f"清理文件 {chunk_name} 失败: {e}")
             self.owned_temp_chunks = []
 
         # 清理提取的音频文件（如果是从视频提取的）
         if (hasattr(self, 'original_file_path') and self.original_file_path and
+            hasattr(self, 'file_path') and self.file_path and
             self.original_file_path != self.file_path):
             try:
                 if os.path.exists(self.file_path):
                     os.remove(self.file_path)
                     self.log_message.emit(f"已删除提取的音频文件: {os.path.basename(self.file_path)}")
-            except OSError as e:
+            except (OSError, TypeError) as e:
+                file_name = os.path.basename(self.file_path) if self.file_path else "未知文件"
                 self.log_message.emit(f"清理提取的音频文件失败: {e}")
 
         self.log_message.emit("临时文件清理完成。")

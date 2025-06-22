@@ -390,11 +390,14 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "一个任务已经在运行中。")
             return
 
-        self.upload_complete_logged = False
-        self.set_ui_enabled(False)
-
+        # 只在非重试模式下设置UI状态（重试时已在 _setup_retry_ui 中设置）
         if not restore_state:
+            self.upload_complete_logged = False
+            self.set_ui_enabled(False)
             self.log_area.append("开始执行转录任务...")
+        else:
+            # 重试模式下，只重置上传完成标志（UI状态已在 _setup_retry_ui 中设置）
+            self.upload_complete_logged = False
 
         self.thread = QThread()
         self.worker = Worker(
@@ -434,6 +437,10 @@ class MainWindow(QMainWindow):
         """请求取消当前正在运行的任务。"""
         self.log_area.append("\n正在请求取消任务...")
         self._pending_retry_state = None # 取消时清除重试状态
+
+        # 取消时清理临时文件
+        self._cleanup_temp_audio_file()
+
         if self.worker:
             self.worker.request_cancellation()
 
@@ -442,6 +449,11 @@ class MainWindow(QMainWindow):
         """任务成功完成时的处理。"""
         QMessageBox.information(self, "成功", message)
         self.log_area.append(f"\n✅ {message}")
+
+        # 任务成功完成，清理临时文件并清除重试状态
+        self._pending_retry_state = None
+        self._cleanup_temp_audio_file()
+
         if self.thread:
             self.thread.quit()
 
@@ -479,26 +491,23 @@ class MainWindow(QMainWindow):
             chunk_index = getattr(self.worker, 'current_chunk_index', 0)
             self.segmented_progress_bar.update_segment_progress(chunk_index, bytes_sent, total_bytes)
 
-            # 更新进度标签
-            sent_mb = bytes_sent / (1024 * 1024)
-            total_mb = total_bytes / (1024 * 1024)
-            chunk_text = f"片段 {chunk_index + 1}/{self.worker.total_chunks}"
-            self.progress_label.setText(f"{chunk_text} - 上传中: {sent_mb:.2f}MB / {total_mb:.2f}MB")
+            # 多片段模式：不显示重复的文字进度，分段进度条已经提供了可视化信息
+            # 只在上传完成时更新状态
+            if not self.upload_complete_logged and bytes_sent >= total_bytes and total_bytes > 0:
+                self.upload_complete_logged = True
+                self.progress_label.setText("上传完成，正在处理...")
         else:
             # 单文件模式：使用兼容的进度更新
             self.segmented_progress_bar.update_single_progress(bytes_sent, total_bytes)
 
-            sent_mb = bytes_sent / (1024 * 1024)
-            if total_bytes > 0:
-                total_mb = total_bytes / (1024 * 1024)
-                self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB / {total_mb:.2f} MB")
-            else:
-                self.progress_label.setText(f"正在上传: {sent_mb:.2f} MB")
-
-        # 检查上传完成
-        if not self.upload_complete_logged and bytes_sent >= total_bytes and total_bytes > 0:
-            self.upload_complete_logged = True
-            self.progress_label.setText("上传完成，正在处理...")
+            # 单文件模式：显示简洁的状态信息
+            if not self.upload_complete_logged and bytes_sent >= total_bytes and total_bytes > 0:
+                self.upload_complete_logged = True
+                self.progress_label.setText("上传完成，正在处理...")
+            elif not self.upload_complete_logged:
+                # 只有在上传未完成时才显示"正在上传..."
+                self.progress_label.setText("正在上传...")
+            # 如果已经完成上传，保持"上传完成，正在处理..."状态
 
     def update_chunk_progress(self, chunk_index, status, message):
         """更新片段处理进度。"""
@@ -513,22 +522,21 @@ class MainWindow(QMainWindow):
 
     def _handle_task_completion(self):
         """处理任务完成后的清理工作。"""
-        # 清理临时音频文件
-        if self.temp_audio_file and os.path.exists(self.temp_audio_file):
+        # 只有在没有待重试状态时才清理临时音频文件
+        if not self._pending_retry_state and self.temp_audio_file and os.path.exists(self.temp_audio_file):
             try:
                 os.remove(self.temp_audio_file)
                 self.log_area.append(f"已清理临时文件: {os.path.basename(self.temp_audio_file)}")
+                self.temp_audio_file = None
             except OSError as e:
                 self.log_area.append(f"清理临时文件失败: {e}")
-            finally:
-                self.temp_audio_file = None
 
-        # 重置UI状态
-        self.reset_ui_after_task()
-
-        # 如果有待重试的状态，执行重试
+        # 如果有待重试的状态，不要重置UI，直接执行重试
         if self._pending_retry_state:
             QTimer.singleShot(1000, self._execute_retry)
+        else:
+            # 只有在没有重试时才重置UI状态
+            self.reset_ui_after_task()
 
     def _execute_retry(self):
         """执行重试逻辑。"""
@@ -537,12 +545,66 @@ class MainWindow(QMainWindow):
             restore_state = self._pending_retry_state
             self._pending_retry_state = None
 
+            # 重新设置UI状态以显示进度
+            self._setup_retry_ui(restore_state)
+
+            # 确定要使用的文件路径
+            file_to_process = restore_state.get('file_path')
+            original_file = restore_state.get('original_file_path')
+
+            # 如果是单文件模式且有提取的音频文件，优先使用提取的音频文件
+            if restore_state.get('was_single_file_mode') and restore_state.get('extracted_audio_file'):
+                extracted_audio = restore_state.get('extracted_audio_file')
+                if os.path.exists(extracted_audio):
+                    file_to_process = extracted_audio
+                    self.log_area.append(f"重试时使用已提取的音频文件: {os.path.basename(extracted_audio)}")
+                else:
+                    self.log_area.append("提取的音频文件不存在，将重新提取...")
+
             # 重新执行任务
             self._execute_transcription_task(
-                restore_state.get('file_path'),
-                restore_state.get('original_file_path'),
+                file_to_process,
+                original_file,
                 restore_state
             )
+
+    def _setup_retry_ui(self, restore_state):
+        """设置重试时的UI状态"""
+        # 禁用UI控件
+        self.set_ui_enabled(False)
+
+        # 显示进度条和标签
+        self.segmented_progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.progress_label.setText("重试中...")
+
+        # 重置上传完成标志
+        self.upload_complete_logged = False
+
+        # 根据恢复的状态设置进度条模式
+        if restore_state.get('was_single_file_mode'):
+            # 单文件模式
+            file_path = restore_state.get('extracted_audio_file') or restore_state.get('file_path')
+            if file_path:
+                self.segmented_progress_bar.set_single_file_mode(file_path)
+                self.log_area.append("重试：设置单文件进度条模式")
+        else:
+            # 多片段模式
+            temp_chunks = restore_state.get('temp_chunks', [])
+            if temp_chunks:
+                self.segmented_progress_bar.set_segments(temp_chunks)
+                self.log_area.append(f"重试：设置多片段进度条模式，共 {len(temp_chunks)} 个片段")
+
+    def _cleanup_temp_audio_file(self):
+        """清理临时音频文件。"""
+        if self.temp_audio_file and os.path.exists(self.temp_audio_file):
+            try:
+                os.remove(self.temp_audio_file)
+                self.log_area.append(f"已清理临时文件: {os.path.basename(self.temp_audio_file)}")
+            except OSError as e:
+                self.log_area.append(f"清理临时文件失败: {e}")
+            finally:
+                self.temp_audio_file = None
 
     # --- 拖放功能 ---
     def dragEnterEvent(self, event):
