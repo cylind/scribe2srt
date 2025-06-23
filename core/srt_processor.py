@@ -114,10 +114,18 @@ class SrtProcessor:
         """
         Pre-processes the word list to handle language-specific quirks,
         such as merging standalone CJK punctuation and filtering out spacing characters.
+        Also separates audio_event types for independent processing.
         """
         raw_words = json_data.get("words", [])
         self.words = []
+        self.audio_events = []  # 独立存储音频事件
+
         for word_info in raw_words:
+            # 首先检查是否为音频事件类型
+            if word_info.get('type') == 'audio_event':
+                self.audio_events.append(word_info.copy())
+                continue
+
             # Skip spacing characters to fix timing issues with Latin text
             # But preserve the space character in the text of the previous word
             if word_info.get('type') == 'spacing':
@@ -138,37 +146,75 @@ class SrtProcessor:
                     continue
             self.words.append(word_info)
 
+    def _create_audio_event_entries(self) -> List[Dict]:
+        """
+        为音频事件创建独立的字幕条目
+
+        Returns:
+            音频事件字幕条目列表
+        """
+        audio_event_entries = []
+
+        for event in self.audio_events:
+            # 创建音频事件字幕条目
+            entry = {
+                'text': event['text'],
+                'start': event['start'],
+                'end': event['end'],
+                'words': [event],
+                'is_audio_event': True,
+                'word_count': 0,  # 音频事件不计入单词数
+                'char_count': len(event['text'].replace(' ', ''))
+            }
+            audio_event_entries.append(entry)
+
+        return audio_event_entries
+
     def create_srt(self) -> str:
         """
         Creates the full SRT content using the new two-stage approach:
-        1. Sentence-level pre-splitting based on punctuation priority
-        2. Intelligent merging based on CPS, CPL, and display time rules
+        1. Sentence-level pre-splitting based on punctuation priority (only for word types)
+        2. Independent audio_event processing
+        3. Intelligent merging based on CPS, CPL, and display time rules
+        4. Final integration and sorting
         """
-        if not self.words:
+        if not self.words and not self.audio_events:
             return ""
 
-        # Stage 1: Sentence-level pre-splitting
-        sentence_splitter = SentenceSplitter(self.language)
-        sentence_groups = sentence_splitter.split_into_sentence_groups(self.words)
-        basic_entries = sentence_splitter.create_basic_subtitle_entries(sentence_groups)
+        # Stage 1: Sentence-level pre-splitting (only for word types)
+        basic_entries = []
 
-        # Stage 2: Intelligent merging
-        subtitle_settings = {
-            'min_subtitle_duration': self.min_subtitle_duration,
-            'min_subtitle_gap': self.min_subtitle_gap,
-            'max_subtitle_duration': self.max_subtitle_duration,
-            'cjk_cps': self.max_cps if self.is_cjk else CPS_SETTINGS["cjk"],
-            'latin_cps': self.max_cps if not self.is_cjk else CPS_SETTINGS["latin"],
-            'cjk_chars_per_line': self.max_chars_per_line if self.is_cjk else CPL_SETTINGS["cjk"],
-            'latin_chars_per_line': self.max_chars_per_line if not self.is_cjk else CPL_SETTINGS["latin"]
-        }
-        
-        intelligent_merger = IntelligentMerger(self.language, subtitle_settings)
-        merged_entries = intelligent_merger.merge_basic_entries(basic_entries)
-        optimized_entries = intelligent_merger.optimize_merged_entries(merged_entries)
+        if self.words:
+            sentence_splitter = SentenceSplitter(self.language)
+            sentence_groups = sentence_splitter.split_into_sentence_groups(self.words)
+            basic_entries = sentence_splitter.create_basic_subtitle_entries(sentence_groups)
 
-        # Stage 3: Generate final SRT content with optimized display formatting
-        return self._generate_final_srt_content(optimized_entries)
+        # Stage 2: Independent audio_event processing
+        audio_event_entries = self._create_audio_event_entries()
+
+        # Stage 3: Intelligent merging (only for word-based entries)
+        merged_entries = []
+        if basic_entries:
+            subtitle_settings = {
+                'min_subtitle_duration': self.min_subtitle_duration,
+                'min_subtitle_gap': self.min_subtitle_gap,
+                'max_subtitle_duration': self.max_subtitle_duration,
+                'cjk_cps': self.max_cps if self.is_cjk else CPS_SETTINGS["cjk"],
+                'latin_cps': self.max_cps if not self.is_cjk else CPS_SETTINGS["latin"],
+                'cjk_chars_per_line': self.max_chars_per_line if self.is_cjk else CPL_SETTINGS["cjk"],
+                'latin_chars_per_line': self.max_chars_per_line if not self.is_cjk else CPL_SETTINGS["latin"]
+            }
+
+            intelligent_merger = IntelligentMerger(self.language, subtitle_settings)
+            merged_entries = intelligent_merger.merge_basic_entries(basic_entries)
+            merged_entries = intelligent_merger.optimize_merged_entries(merged_entries)
+
+        # Stage 4: Combine and sort all entries (word-based + audio events)
+        all_entries = merged_entries + audio_event_entries
+        all_entries.sort(key=lambda x: x['start'])  # 按时间顺序排序
+
+        # Stage 5: Generate final SRT content with optimized display formatting
+        return self._generate_final_srt_content(all_entries)
 
     def _generate_final_srt_content(self, entries: List[Dict]) -> str:
         """

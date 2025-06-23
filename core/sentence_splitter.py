@@ -7,17 +7,16 @@
 """
 
 from typing import Dict, List, Tuple
-import re
 
 
 class SentenceSplitter:
     """
     句子分割器类
-    
+
     核心功能：
     1. 基于标点符号优先级进行句子边界检测
     2. 正确处理spacing类型的空白字符
-    3. 识别并单独处理音频事件
+    3. 只处理type为'word'的内容，不处理audio_event类型
     4. 支持多语言（CJK和Latin）
     """
     
@@ -25,54 +24,26 @@ class SentenceSplitter:
         self.language = language_code[:3]
         self.is_cjk = self._is_cjk_language()
         
-        # 定义标点符号优先级
+        # 定义标点符号优先级 - 扩展支持常见ASR标点符号
         if self.is_cjk:
             self.high_priority_punct = ["。", "！", "？"]  # 句子结束符
-            self.medium_priority_punct = ["；", "："]      # 子句结束符
-            self.low_priority_punct = ["，", "、"]         # 短语分隔符
+            self.medium_priority_punct = ["；", "：", "》", "」", "】", "）"]  # 子句结束符，包含引用结束符
+            self.low_priority_punct = ["，", "、", "《", "「", "【", "（", "…", "...", "-"]  # 短语分隔符，包含引用开始符、省略号和连字符
         else:
             self.high_priority_punct = [".", "!", "?"]    # 句子结束符
-            self.medium_priority_punct = [";", ":"]       # 子句结束符
-            self.low_priority_punct = [","]               # 短语分隔符
+            self.medium_priority_punct = [";", ":", ")", "]", "}"]  # 子句结束符，包含闭合符号
+            self.low_priority_punct = [",", "(", "[", "{", "...", "…", "-"]  # 短语分隔符，包含开放符号、省略号和连字符
         
         # 所有分割标点符号
-        self.all_split_punct = (self.high_priority_punct + 
-                               self.medium_priority_punct + 
+        self.all_split_punct = (self.high_priority_punct +
+                               self.medium_priority_punct +
                                self.low_priority_punct)
-        
-        # 音频事件关键词（可扩展）
-        self.audio_event_keywords = [
-            "music", "sound", "noise", "applause", "laughter",
-            "音乐", "音效", "掌声", "笑声", "背景音",
-            "♪", "♫", "♬", "♩", "🎵", "🎶"
-        ]
     
     def _is_cjk_language(self) -> bool:
         """检查是否为CJK语言"""
         return self.language in ["zho", "jpn", "kor", "chi", "zh", "ja", "ko"]
     
-    def _is_audio_event(self, word_info: Dict) -> bool:
-        """
-        检测是否为音频事件
-        
-        Args:
-            word_info: 单词信息字典
-            
-        Returns:
-            是否为音频事件
-        """
-        text = word_info.get('text', '').strip().lower()
-        
-        # 检查是否包含音频事件关键词
-        for keyword in self.audio_event_keywords:
-            if keyword.lower() in text:
-                return True
-        
-        # 检查是否为纯符号（可能是音乐符号）
-        if re.match(r'^[^\w\s]+$', text) and len(text) <= 3:
-            return True
-            
-        return False
+
     
     def _get_punctuation_priority(self, punct: str) -> int:
         """
@@ -119,33 +90,29 @@ class SentenceSplitter:
     def _should_split_at_word(self, word_info: Dict, accumulated_words: List[Dict]) -> bool:
         """
         判断是否应该在此单词处分割句子
-        
+
         Args:
             word_info: 当前单词信息
             accumulated_words: 已累积的单词列表
-            
+
         Returns:
             是否应该分割
         """
-        # 如果是音频事件，应该独立成句
-        if self._is_audio_event(word_info):
-            return True
-        
         # 检查是否以分割标点符号结尾
-        has_punct, punct, priority = self._word_ends_with_split_punct(word_info)
-        
+        has_punct, _, priority = self._word_ends_with_split_punct(word_info)
+
         if not has_punct:
             return False
-        
+
         # 高优先级标点符号总是分割
         if priority == 0:
             return True
-        
+
         # 中优先级标点符号：需要有足够的内容
         if priority == 1:
             if len(accumulated_words) >= 3:  # 至少3个词
                 return True
-        
+
         # 低优先级标点符号：需要更多内容且不能太频繁分割
         if priority == 2:
             if len(accumulated_words) >= 5:  # 至少5个词
@@ -153,7 +120,7 @@ class SentenceSplitter:
                 total_chars = sum(len(w.get('text', '')) for w in accumulated_words)
                 if total_chars >= 15:  # 至少15个字符
                     return True
-        
+
         return False
     
     def split_into_sentence_groups(self, words: List[Dict]) -> List[List[Dict]]:
@@ -239,7 +206,7 @@ class SentenceSplitter:
                 'start': start_time,
                 'end': end_time,
                 'words': group,
-                'is_audio_event': any(self._is_audio_event(w) for w in group),
+                'is_audio_event': False,  # 句子分割器只处理word类型，不包含音频事件
                 'word_count': len(actual_words),
                 'char_count': len(text.replace(' ', ''))  # 不计空格的字符数
             }

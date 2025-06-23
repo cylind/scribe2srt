@@ -1,5 +1,5 @@
 {
-    "split_duration_min": 12,
+    "split_duration_min": 90,
     "min_subtitle_duration": 0.83,
     "max_subtitle_duration": 7.0,
     "min_subtitle_gap": 0.083,
