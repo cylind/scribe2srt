@@ -11,7 +11,8 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from PySide6.QtCore import QObject, Signal, QMutex, QMutexLocker, QSemaphore, QRunnable, QEventLoop, QTimer
 
-from api.client import ElevenLabsSTTClient
+from api.client import create_stt_client
+from .config import DEFAULT_PROVIDER
 
 
 class ChunkProcessorSignals(QObject):
@@ -26,7 +27,8 @@ class ChunkProcessorTask(QRunnable):
 
     def __init__(self, chunk_index: int, chunk_path: str, time_offset: float,
                  language_code: str, tag_audio_events: bool, ffmpeg_available: bool,
-                 max_retries: int, parent_processor):
+                 max_retries: int, parent_processor,
+                 stt_provider: str = DEFAULT_PROVIDER, api_key: Optional[str] = None):
         super().__init__()
         self.signals = ChunkProcessorSignals()
         self.chunk_index = chunk_index
@@ -37,6 +39,8 @@ class ChunkProcessorTask(QRunnable):
         self.ffmpeg_available = ffmpeg_available
         self.max_retries = max_retries
         self.parent_processor = parent_processor
+        self.stt_provider = stt_provider
+        self.api_key = api_key
 
     def run(self):
         """执行片段处理"""
@@ -54,8 +58,12 @@ class ChunkProcessorTask(QRunnable):
             with QMutexLocker(self.parent_processor.mutex):
                 self.parent_processor.processing_chunks.add(self.chunk_index)
 
-            # 创建API客户端
-            client = ElevenLabsSTTClient(ffmpeg_available=self.ffmpeg_available)
+            # 创建API客户端（与所选 provider 一致）
+            client = create_stt_client(
+                self.stt_provider,
+                ffmpeg_available=self.ffmpeg_available,
+                api_key=self.api_key,
+            )
 
             # 重试机制
             last_error = None
@@ -197,7 +205,9 @@ class AsyncChunkProcessor(QObject):
                            language_code: str,
                            tag_audio_events: bool,
                            ffmpeg_available: bool,
-                           log_callback: Optional[Callable[[str], None]] = None) -> bool:
+                           log_callback: Optional[Callable[[str], None]] = None,
+                           stt_provider: str = DEFAULT_PROVIDER,
+                           api_key: Optional[str] = None) -> bool:
         """
         异步处理所有音频片段
 
@@ -247,7 +257,9 @@ class AsyncChunkProcessor(QObject):
                     tag_audio_events=tag_audio_events,
                     ffmpeg_available=ffmpeg_available,
                     max_retries=self.max_retries,
-                    parent_processor=self
+                    parent_processor=self,
+                    stt_provider=stt_provider,
+                    api_key=api_key,
                 )
 
                 # 连接信号

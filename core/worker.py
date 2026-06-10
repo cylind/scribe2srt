@@ -12,7 +12,8 @@ from typing import Optional, List, Dict, Any
 
 from PySide6.QtCore import QObject, Signal, QThreadPool
 
-from api.client import ElevenLabsSTTClient
+from api.client import create_stt_client, PROVIDER_60DB
+from .config import DEFAULT_PROVIDER, SIXTYDB_MAX_CHUNK_SEC
 from .srt_processor import create_srt_from_json
 from .async_chunk_processor import AsyncChunkProcessor
 
@@ -32,7 +33,8 @@ class Worker(QObject):
                  original_file_path: Optional[str] = None, ffmpeg_available: bool = False,
                  restore_state: Optional[Dict[str, Any]] = None, subtitle_settings: Optional[Dict] = None,
                  enable_async_processing: bool = True, max_concurrent_chunks: int = 3,
-                 max_retries: int = 3, api_rate_limit_per_minute: int = 30):
+                 max_retries: int = 3, api_rate_limit_per_minute: int = 30,
+                 stt_provider: str = DEFAULT_PROVIDER, api_key: Optional[str] = None):
         super().__init__()
         self.file_path = file_path
         self.original_file_path = original_file_path if original_file_path else file_path
@@ -43,9 +45,26 @@ class Worker(QObject):
         self.ffmpeg_available = ffmpeg_available
         self.restore_state = restore_state
         self.subtitle_settings = subtitle_settings
-        
+
+        # STT 提供商（语音识别引擎）配置——从恢复状态或传入参数获取
+        if self.restore_state:
+            self.stt_provider = self.restore_state.get("stt_provider", stt_provider)
+            self.api_key = self.restore_state.get("api_key", api_key)
+        else:
+            self.stt_provider = stt_provider
+            self.api_key = api_key
+
+        # 60dB 单文件 10MB/1h 上限：把切片时长收敛到安全范围内
+        if self.stt_provider == PROVIDER_60DB:
+            self.split_duration_sec = min(self.split_duration_sec, SIXTYDB_MAX_CHUNK_SEC)
+
         self.uploader = None
-        self.client = ElevenLabsSTTClient(signals_forwarder=self, ffmpeg_available=self.ffmpeg_available)
+        self.client = create_stt_client(
+            self.stt_provider,
+            signals_forwarder=self,
+            ffmpeg_available=self.ffmpeg_available,
+            api_key=self.api_key,
+        )
 
         # 异步片段处理器
         self.async_processor = None
@@ -104,6 +123,9 @@ class Worker(QObject):
             "max_subtitle_duration": self.max_subtitle_duration,
             "split_duration_min": self.split_duration_sec / 60,
             "ffmpeg_available": self.ffmpeg_available,
+            # STT 提供商配置（用于重试时保持一致的引擎）
+            "stt_provider": self.stt_provider,
+            "api_key": self.api_key,
             # 异步处理相关状态
             "enable_async_processing": self.enable_async_processing,
             "max_concurrent_chunks": self.max_concurrent_chunks,
@@ -178,6 +200,15 @@ class Worker(QObject):
 
         media_info = self.client.log_media_info(self.file_path)
         duration = media_info.get("duration") if media_info else 0
+
+        # 60dB 有 10MB/1 小时的硬性上限；超限且无法用 FFmpeg 切分时直接报错，避免上传必定失败
+        if (self.stt_provider == PROVIDER_60DB and duration > self.split_duration_sec
+                and not self.ffmpeg_available):
+            self.error.emit(
+                f"60dB 单文件上限为 10MB/1 小时，当前文件时长约 {duration / 60:.1f} 分钟需要切分，"
+                "但未检测到 FFmpeg。请安装 FFmpeg 后重试，或改用 ElevenLabs。"
+            )
+            return
 
         if duration > self.split_duration_sec and self.ffmpeg_available:
             self.log_message.emit(f"文件时长超过 {self.split_duration_sec / 60:.0f} 分钟，将执行自动切分。")
@@ -286,7 +317,9 @@ class Worker(QObject):
             language_code=self.language_code,
             tag_audio_events=self.tag_audio_events,
             ffmpeg_available=self.ffmpeg_available,
-            log_callback=lambda msg: self.log_message.emit(msg)
+            log_callback=lambda msg: self.log_message.emit(msg),
+            stt_provider=self.stt_provider,
+            api_key=self.api_key,
         )
 
         if not success:
@@ -356,7 +389,9 @@ class Worker(QObject):
             language_code=self.language_code,
             tag_audio_events=self.tag_audio_events,
             ffmpeg_available=self.ffmpeg_available,
-            log_callback=lambda msg: self.log_message.emit(msg)
+            log_callback=lambda msg: self.log_message.emit(msg),
+            stt_provider=self.stt_provider,
+            api_key=self.api_key,
         )
 
         if not success:

@@ -8,6 +8,15 @@
 SETTINGS_FILE = "settings.json"
 LANGUAGES = {"韩语": "ko", "日语": "ja", "中文": "zh", "英文": "en", "自动检测": "auto"}
 
+# --- STT 提供商（语音识别引擎）---
+# 显示名称 -> 内部 provider 标识（与 api/client.py 中的常量保持一致）
+PROVIDERS = {"ElevenLabs": "elevenlabs", "60dB": "60db"}
+DEFAULT_PROVIDER = "elevenlabs"
+
+# 60dB 单个文件上限为 10MB / 1 小时。以 192kbps 重编码时，5 分钟 ≈ 7.2MB，
+# 安全地低于 10MB 上限，因此对 60dB 强制把切片时长收敛到该上限以内。
+SIXTYDB_MAX_CHUNK_SEC = 300
+
 # --- 字幕生成规则 ---
 MAX_LINES_PER_SUBTITLE = 2
 

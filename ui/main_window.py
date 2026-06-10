@@ -20,7 +20,8 @@ from PySide6.QtGui import QIcon
 # --- 从重构后的模块中导入 ---
 from core.config import (
     LANGUAGES, SETTINGS_FILE, MAX_SUBTITLE_DURATION,
-    DEFAULT_SPLIT_DURATION_MIN, DEFAULT_SUBTITLE_SETTINGS
+    DEFAULT_SPLIT_DURATION_MIN, DEFAULT_SUBTITLE_SETTINGS,
+    PROVIDERS, DEFAULT_PROVIDER
 )
 from core.worker import Worker
 from core.ffmpeg_utils import is_ffmpeg_available, extract_audio, get_media_info
@@ -52,7 +53,7 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Scribe -> SRT (Powered by ElevenLabs)")
+        self.setWindowTitle("Scribe -> SRT (Powered by ElevenLabs & 60dB)")
         self.setGeometry(100, 100, 750, 600)
         self.setAcceptDrops(True)
         self._apply_dark_mode_title_bar()
@@ -101,6 +102,17 @@ class MainWindow(QMainWindow):
         options_layout = QHBoxLayout()
         options_layout.setSpacing(10)
         
+        self.provider_label = QLabel("识别引擎:")
+        self.provider_combo = QComboBox()
+        self.provider_combo.addItems(PROVIDERS.keys())
+        # 根据已保存的设置选中上次使用的引擎
+        saved_provider = self.settings.get("stt_provider", DEFAULT_PROVIDER)
+        provider_display = next(
+            (name for name, code in PROVIDERS.items() if code == saved_provider),
+            next(iter(PROVIDERS.keys()))
+        )
+        self.provider_combo.setCurrentText(provider_display)
+
         self.lang_label = QLabel("源语言:")
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(LANGUAGES.keys())
@@ -112,6 +124,9 @@ class MainWindow(QMainWindow):
         self.async_settings_button = QPushButton("并发处理设置")
         self.settings_button = QPushButton("字幕设置")
 
+        options_layout.addWidget(self.provider_label)
+        options_layout.addWidget(self.provider_combo)
+        options_layout.addSpacing(20)
         options_layout.addWidget(self.lang_label)
         options_layout.addWidget(self.lang_combo)
         options_layout.addSpacing(20)
@@ -213,6 +228,10 @@ class MainWindow(QMainWindow):
             "max_concurrent_chunks": 3,
             "max_retries": 3,
             "api_rate_limit_per_minute": 30,
+
+            # STT 提供商设置
+            "stt_provider": DEFAULT_PROVIDER,
+            "sixtydb_api_key": "",
         }
 
         if os.path.exists(SETTINGS_FILE):
@@ -306,6 +325,7 @@ class MainWindow(QMainWindow):
         self.cancel_button.setVisible(not enabled)
         self.start_button.setEnabled(enabled and bool(self.selected_file_paths))
         self.select_button.setEnabled(enabled)
+        self.provider_combo.setEnabled(enabled)
         self.lang_combo.setEnabled(enabled)
         self.audio_events_checkbox.setEnabled(enabled)
         self.async_settings_button.setEnabled(enabled)
@@ -325,6 +345,20 @@ class MainWindow(QMainWindow):
         if not self.selected_file_paths:
             QMessageBox.warning(self, "警告", "请先选择至少一个文件！")
             return
+
+        # 校验所选识别引擎所需的凭据
+        provider_code = PROVIDERS.get(self.provider_combo.currentText(), DEFAULT_PROVIDER)
+        if provider_code == "60db" and not self.settings.get("sixtydb_api_key", "").strip():
+            QMessageBox.warning(
+                self, "缺少 API Key",
+                "已选择 60dB 引擎，但尚未配置 API Key。\n请在「字幕设置」中填写 60dB API Key 后重试。"
+            )
+            return
+
+        # 记住本次选择的引擎
+        if self.settings.get("stt_provider") != provider_code:
+            self.settings["stt_provider"] = provider_code
+            self.save_settings()
 
         self.batch_queue = list(self.selected_file_paths)
         self.batch_mode = len(self.batch_queue) > 1
@@ -602,7 +636,10 @@ class MainWindow(QMainWindow):
             enable_async_processing=self.settings.get("enable_async_processing", True),
             max_concurrent_chunks=self.settings.get("max_concurrent_chunks", 3),
             max_retries=self.settings.get("max_retries", 3),
-            api_rate_limit_per_minute=self.settings.get("api_rate_limit_per_minute", 30)
+            api_rate_limit_per_minute=self.settings.get("api_rate_limit_per_minute", 30),
+            # STT 提供商与凭据
+            stt_provider=PROVIDERS.get(self.provider_combo.currentText(), DEFAULT_PROVIDER),
+            api_key=self.settings.get("sixtydb_api_key", "")
         )
         self.worker.moveToThread(self.thread)
 

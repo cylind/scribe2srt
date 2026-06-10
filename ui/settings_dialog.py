@@ -6,7 +6,7 @@
 
 from PySide6.QtWidgets import (
     QDialog, QFormLayout, QDialogButtonBox, QDoubleSpinBox, QSpinBox, QVBoxLayout,
-    QGroupBox, QHBoxLayout, QLabel
+    QGroupBox, QHBoxLayout, QLabel, QLineEdit
 )
 
 from core.config import (
@@ -104,7 +104,24 @@ class SettingsDialog(QDialog):
         cpl_layout.addRow("英文等拉丁语言:", self.latin_cpl_spin)
         cpl_group.setLayout(cpl_layout)
 
+        # === STT 提供商设置组 ===
+        provider_group = QGroupBox("识别引擎设置 (60dB)")
+        provider_layout = QFormLayout()
+
+        self.sixtydb_api_key_edit = QLineEdit()
+        self.sixtydb_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.sixtydb_api_key_edit.setPlaceholderText("使用 60dB 引擎时必填")
+        self.sixtydb_api_key_edit.setText(current_settings.get("sixtydb_api_key", ""))
+
+        provider_layout.addRow("60dB API Key:", self.sixtydb_api_key_edit)
+        provider_hint = QLabel("说明：ElevenLabs 无需 API Key；60dB 需要在此填写 Bearer API Key。")
+        provider_hint.setWordWrap(True)
+        provider_hint.setStyleSheet("QLabel { color: #888888; font-size: 9pt; }")
+        provider_layout.addRow(provider_hint)
+        provider_group.setLayout(provider_layout)
+
         # 添加所有组到主布局
+        main_layout.addWidget(provider_group)
         main_layout.addWidget(subtitle_group)
         main_layout.addWidget(cps_group)
         main_layout.addWidget(cpl_group)
@@ -142,6 +159,9 @@ class SettingsDialog(QDialog):
     def get_settings(self) -> dict:
         """获取对话框中的当前设置值。"""
         return {
+            # STT 提供商设置（API Key 去除首尾空白）
+            "sixtydb_api_key": self.sixtydb_api_key_edit.text().strip(),
+
             # 专业字幕设置
             "min_subtitle_duration": self.min_duration_spin.value(),
             "max_subtitle_duration": self.max_duration_spin.value(),
